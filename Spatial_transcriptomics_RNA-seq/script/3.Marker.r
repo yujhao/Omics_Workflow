@@ -1,6 +1,6 @@
 #3 marker基因鉴定
 dir.create("3.Marker")
-All_markers = FindAllMarkers(brain, 
+All_markers = FindAllMarkers(data_ob, 
                              only.pos = TRUE,
                              test.use = "wilcox")
 top10 = All_markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_log2FC)
@@ -14,7 +14,7 @@ write.table(top10,
             col.names = T, 
             row.names = F, 
             sep = "\t",quote = F)
-p1 = DoHeatmap(brain, 
+p1 = DoHeatmap(data_ob, 
                features = top10$gene,
                group.by="clusters",
                size = 2)

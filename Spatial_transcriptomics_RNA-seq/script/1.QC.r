@@ -20,15 +20,15 @@ suppressWarnings({
 
 #1 10×空间转录组数据读取 
 dir.create("1.SpaceRanger_QC")
-brain = readRDS("data/brain.rds")
-brain = PercentageFeatureSet(brain, pattern = "^MT-",
+data_ob = readRDS("data/data_ob.rds")
+data_ob = PercentageFeatureSet(data_ob, pattern = "^MT-",
                              col.name = "percent.mito")
-Idents(brain) = "sampleid"
+Idents(data_ob) = "sampleid"
 for (i in c("nCount_Spatial","nFeature_Spatial","percent.mito")){
-p1 = VlnPlot(brain,
+p1 = VlnPlot(data_ob,
              features = i,
              pt.size = 0.1) + NoLegend()
-p2 = SpatialPlot(brain,
+p2 = SpatialFeaturePlot(data_ob,
                  ncol = 2,
                  features=i,
                  pt.size.factor = 1.4,

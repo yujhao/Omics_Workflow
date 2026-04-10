@@ -1,17 +1,17 @@
 #5 RCTD
 dir.create("5.RCTD")
-cortex_sc <- readRDS("MNN.rds")
-counts_ref = GetAssayData(cortex_sc, 
+data_ob <- readRDS("MNN.rds")
+counts_ref = GetAssayData(data_ob, 
                           assay = "RNA",
                           slot = "counts")
-cell_types_ref <- cortex_sc@meta.data %>%  dplyr::select("subclass") %>%
+cell_types_ref <- data_ob@meta.data %>%  dplyr::select("subclass") %>%
   dplyr::mutate(cell_type =str_replace_all(!!!rlang::syms("subclass"), "-", "_") %>%   
   as.factor()) %>% .$cell_type
 cell_types_ref <- setNames(cell_types_ref,
-                           cortex_sc@meta.data  %>% rownames)
-nUMI_ref <- cortex_sc@meta.data %>% dplyr::select("nCount_RNA") %>% .$nCount_RNA
+                           data_ob@meta.data  %>% rownames)
+nUMI_ref <- data_ob@meta.data %>% dplyr::select("nCount_RNA") %>% .$nCount_RNA
 nUMI_ref <- setNames(nUMI_ref,
-                     cortex_sc@meta.data %>% rownames)
+                     data_ob@meta.data %>% rownames)
 reference = spacexr::Reference(counts_ref,
                                cell_types_ref,
                                nUMI_ref)
@@ -28,7 +28,7 @@ seurat_to_SpatialRNA = function(st_ob, st_assay) {
   puck = spacexr::SpatialRNA(coords, counts) 
   return(puck)
 }
-spatialRNA = seurat_to_SpatialRNA(brain, "Spatial")
+spatialRNA = seurat_to_SpatialRNA(data_ob, "Spatial")
 RCTD_ob = spacexr::create.RCTD(
   spatialRNA=spatialRNA,      
   reference=reference,        
@@ -52,16 +52,16 @@ RCTD_ob = spacexr::create.RCTD(
 myRCTD = spacexr::run.RCTD(RCTD_ob,
                            doublet_mode = "full")
 norm_weights = normalize_weights(myRCTD@results$weights)%>% as.data.frame
-brain@misc$RCTD_result = norm_weights
+data_ob@misc$RCTD_result = norm_weights
 maxn = function(n) function(x) order(x, decreasing = TRUE)[!is.na(x)][n]
 metadata = norm_weights %>% 
   dplyr::mutate(
     top1_celltype = apply(., 1, function(x) names(x)[maxn(1)(x)]),
     top2_celltype = apply(., 1, function(x) names(x)[maxn(2)(x)])
   )
-brain = Seurat::AddMetaData(brain, metadata = metadata)
+data_ob = Seurat::AddMetaData(data_ob, metadata = metadata)
 mat=normalize_weights(myRCTD@results$weights)%>%as.data.frame()
-p = SPOTlight::spatial_scatterpie(se_obj = brain,
+p = SPOTlight::spatial_scatterpie(se_obj = data_ob,
                                   cell_types_all = colnames(mat),
                                   img_path = "tissue_lowres_image.png",
                                   pie_scale = 0.4)
@@ -71,7 +71,7 @@ ggsave("5.RCTD/Celltype_RCTD.pdf",
        width = 14, 
        height = 12,
        dpi = 300)
-p = SpatialDimPlot(brain,group.by = "top1_celltype")+
+p = SpatialDimPlot(data_ob,group.by = "top1_celltype")+
   theme( legend.key = element_rect(fill = NA, color = NA),
          legend.text = element_text(size = 10),
          plot.title = element_text(face = "bold", hjust = 0.5))

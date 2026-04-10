@@ -3,7 +3,7 @@ extra_gene = read.delim("geneset.addmodeulescore.xls",check.names = FALSE)
 score_outdir = "6.AddModuleScore"
 if (dim(extra_gene)[2] == 1 && colnames(extra_gene)[1] == "gene"){colnames(extra_gene)[1]="extra"}
 formated_extra_gene = as.data.frame(tidyr::gather(extra_gene,key = "cluster",value = "GENE"))
-match_results = CaseMatch(search = as.vector(formated_extra_gene$GENE),match = rownames(scRNA_mnn))
+match_results = CaseMatch(search = as.vector(formated_extra_gene$GENE),match = rownames(data_ob))
 match_results <- Filter(function(x) length(x) > 0, match_results)
 filtered_gene = formated_extra_gene$GENE[!formated_extra_gene$GENE %in% names(match_results )& formated_extra_gene$GENE != ""]
 if(length(filtered_gene) != 0){
@@ -23,9 +23,9 @@ topn_markers2vis=list()
 for ( clusterx in unique(topn_markers$folder_suffix) ){
     topn_markers2vis[[clusterx]] = subset(topn_markers,folder_suffix == clusterx)$gene
 }
-scRNA_mnn = AddModuleScore(scRNA_mnn,features=topn_markers2vis,name=names(topn_markers2vis),seed=1)
-colnames(scRNA_mnn@meta.data)[(dim(scRNA_mnn[[]])[2]-length(topn_markers2vis)+1):dim(scRNA_mnn[[]])[2]] = names(topn_markers2vis)
-matrix = scRNA_mnn@meta.data %>%
+data_ob = AddModuleScore(data_ob,features=topn_markers2vis,name=names(topn_markers2vis),seed=1)
+colnames(data_ob@meta.data)[(dim(data_ob[[]])[2]-length(topn_markers2vis)+1):dim(data_ob[[]])[2]] = names(topn_markers2vis)
+matrix = data_ob@meta.data %>%
                     dplyr::rename( "Barcode" = "rawbc") %>%
                     dplyr::select( Barcode,"clusters",!!names(topn_markers2vis) ) %>%
                     dplyr::arrange(!!sym("clusters"))
@@ -51,7 +51,7 @@ p = ggstatsplot::ggbetweenstats(matrix,x = !!sym("clusters"),y = !!sym(i) ,
       ggsave(file.path(score_outdir,paste0(savenames,".png")),plot = p,bg="white")
 }
 lapply(names(topn_markers2vis),function(x){
-    plot= Seurat::FeaturePlot(scRNA_mnn,features = x,
+    plot= Seurat::FeaturePlot(data_ob,features = x,
                             cols = c("grey","red"),split.by = NULL, reduction = "umap", 
                             ncol = 1, pt.size = 0.5, order = T) +
                             theme( plot.title = element_text(hjust = 0.5), 

@@ -3,12 +3,12 @@ dir.create("4.Diffexp")
 contrasts = unlist(strsplit(c("group:H_cj1:H_cj2"), ":", perl = T))
 numerator_subset = unlist(strsplit(contrasts[2], ",", perl = T))
 denominator_subset = unlist(strsplit(contrasts[3], ",", perl = T))
-cellmeta = Seurat::FetchData(brain, vars = contrasts[1]) %>% tibble::rownames_to_column(var = "barcode")
+cellmeta = Seurat::FetchData(data_ob, vars = contrasts[1]) %>% tibble::rownames_to_column(var = "barcode")
 numerator = cellmeta %>% dplyr::filter(!!rlang::sym(contrasts[1]) %in%
     numerator_subset) %>% dplyr::pull(barcode)
 denominator = cellmeta %>% dplyr::filter(!!rlang::sym(contrasts[1]) %in%
     denominator_subset) %>% dplyr::pull(barcode)
-Diff_exp = FindMarkers(brain, 
+Diff_exp = FindMarkers(data_ob, 
                                min.pct = 0.25, 
                                logfc.threshold = 0.25, 
                                only.pos = TRUE,
@@ -19,9 +19,9 @@ Diff_exp = FindMarkers(brain,
 Diff_exp = Diff_exp[abs(Diff_exp$avg_log2FC) > 0.25,]
 Diff_exp = Diff_exp %>% tibble::rownames_to_column(var = "gene") %>%
         dplyr::rename(pvalue = p_val, padj = p_val_adj)
-numerator_means = Matrix::rowMeans(SeuratObject::GetAssayData(brain,
+numerator_means = Matrix::rowMeans(SeuratObject::GetAssayData(data_ob,
         slot = "data")[Diff_exp$gene, numerator])
-denominator_means = Matrix::rowMeans(SeuratObject::GetAssayData(brain,
+denominator_means = Matrix::rowMeans(SeuratObject::GetAssayData(data_ob,
         slot = "data")[Diff_exp$gene, denominator])
 Diff_exp1 = Diff_exp %>% dplyr::mutate(FoldChange = 2^avg_log2FC, baseMean = 1/2 *
         (log2(numerator_means) + log2(denominator_means))) %>%
@@ -67,3 +67,40 @@ ggsave("4.Diffexp/GO_results_all.png", plot=res_plot, width = 12,height = 10)
 #4.2 KEGG富集分析
 # https://davidbioinformatics.nih.gov/conversion.jsp
 # http://bioinfo.org/kobas/genelist/
+
+# 4.3 火山图
+library(ggrepel)
+df <- read.table("group_Dilated_Zone-vs-Proximal_Zone-volcano-p-val-0.05-FC-1.2.gene_symbol_gene.xls", sep = "\t", header = TRUE)
+rownames(df) <- make.unique(as.character(df[[1]]))
+
+df$group <- "NS"
+df$group[df$p.value < 0.05 & df$log2FoldChange > 0] <- "Up"
+df$group[df$p.value < 0.05 & df$log2FoldChange < 0] <- "Down"
+df$group[df$p.value < 0.05 & df$log2FoldChange > log2(1.2)] <- "SigUp"
+df$group[df$p.value < 0.05 & df$log2FoldChange < -log2(1.2)] <- "SigDown"
+df$group <- factor(df$group, levels = c("SigUp", "SigDown", "Up", "Down", "NS"))
+
+df_up <- df[df$p.value < 0.05 & df$log2FoldChange > log2(1.2), ]
+df_down <- df[df$p.value < 0.05 & df$log2FoldChange < -log2(1.2), ]
+
+df_up <- head(df_up[order(df_up$log2FoldChange, decreasing = TRUE), ], 20)
+df_down <- head(df_down[order(df_down$log2FoldChange, decreasing = FALSE), ], 20)
+
+df_label <- rbind(df_up, df_down)
+df_label$label <- rownames(df_label)
+
+p <- ggplot(df, aes(log2FoldChange, -log10(p.value), color = group)) +
+        geom_point() +
+        geom_vline(xintercept = c(-log2(1.2), log2(1.2))) +
+        geom_hline(yintercept = -log10(0.05), linetype = 2) +
+        geom_text_repel(
+        data = df_label,
+        aes(label = label)
+        ) +
+        theme_bw()
+
+ggsave("volcano.png", p, width = 10, height = 8, dpi = 300)
+ggsave("volcano.pdf", p, width = 10, height = 8)
+
+write.csv(df,"volcano.csv")
+  
