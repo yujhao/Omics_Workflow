@@ -1,4 +1,3 @@
-
 # Omics\_Workflow
 
 Integrated transcriptomics analysis workflows for single\-cell, bulk and spatial RNA\-seq data\.
@@ -15,7 +14,7 @@ Complete single\-cell RNA\-seq analytical scripts under `scRNA-seq/`: Quality co
 
 ### Spatial\_transcriptomics\_RNA\-seq
 
-- `10×Visium`: Classic spatial transcriptome workflow for spatial clustering, tissue marker visualization and spatial ligand\-receptor analysis\.
+- Classic spatial transcriptome workflow for spatial clustering, tissue marker visualization and spatial ligand\-receptor analysis\.
 
 ### utils
 
@@ -36,4 +35,3 @@ GitHub: https://github\.com/yujhao/Omics\_Workflow\.git
 ## License
 
 MIT License
-
