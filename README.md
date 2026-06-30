@@ -12,13 +12,10 @@ Complete single\-cell RNA\-seq analytical scripts under `scRNA-seq/`: Quality co
 ### Bulk\_RNA\-seq
 
 - `bulkRNA-seq`: Standard bulk transcriptome pipeline, differential expression \& functional enrichment\.
-- `ChIP-seq`: Reserved workflow for epigenetic peak analysis\.
-- `common`: Shared functions for bulk modules\.
 
 ### Spatial\_transcriptomics\_RNA\-seq
 
 - `10×Visium`: Classic spatial transcriptome workflow for spatial clustering, tissue marker visualization and spatial ligand\-receptor analysis\.
-- `Stereo-seq`: Reserved workflow for Stereo\-seq spatial transcriptomics analytical pipeline.
 
 ### utils
 
