@@ -1,29 +1,29 @@
 #!/usr/bin/env Rscript
 # -*- coding: utf-8 -*-
 # ==============================================================================
-# InferCNV 拷贝数变异分析脚本
-# 检测单细胞数据中的拷贝数变异
+# InferCNV copy number variation analysis script
+# Detect copy number variation in single-cell data
 # ==============================================================================
 
 library(infercnv)
 library(plyranges)
 library(ComplexHeatmap)
 
-# ========================== 配置参数 ==========================
+# ========================== Configuration parameters ==========================
 
 OUTPUT_DIR <- "7.InferCNV"
 GTF_FILE <- "genes.gtf"
-REF_GROUP <- c("T_cells")  # 参考细胞类型
+REF_GROUP <- c("T_cells")  # Reference cell type
 CUTOFF <- 0.1
 NUM_THREADS <- 2
 
-# ========================== 初始化 ==========================
+# ========================== Initialization ==========================
 
 dir.create(OUTPUT_DIR, showWarnings = FALSE)
 
-# ========================== 数据准备 ==========================
+# ========================== Data preparation ==========================
 
-# 读取 GTF 文件获取基因位置信息
+# Read GTF file to obtain gene position information
 gtf <- plyranges::read_gff(GTF_FILE)
 gene.chr <- gtf %>%
     plyranges::filter(type == "gene" & gene_name %in% rownames(scRNA_mnn)) %>%
@@ -32,12 +32,12 @@ gene.chr <- gtf %>%
     dplyr::distinct(gene_name, .keep_all = TRUE) %>%
     dplyr::mutate(seqnames = seqnames)
 
-# 获取表达矩阵和细胞注释
+# Obtain expression matrix and cell annotations
 count_mat <- GetAssayData(scRNA_mnn, "counts")
 cellanno <- FetchData(scRNA_mnn, vars = "new_celltype") %>%
     tibble::rownames_to_column(var = "cellbarcode")
 
-# 保存临时文件
+# Save temporary files
 tempdir <- tempdir()
 cnv_celltyping <- file.path(tempdir, "cnv_celltype_group.xls")
 write.table(cellanno, cnv_celltyping, sep = "\t", col.names = FALSE, row.names = FALSE, quote = FALSE)
@@ -45,9 +45,9 @@ write.table(cellanno, cnv_celltyping, sep = "\t", col.names = FALSE, row.names =
 gene_order_f <- file.path(tempdir, "gene_order_file.xls")
 write.table(gene.chr, gene_order_f, col.names = FALSE, row.names = FALSE, sep = "\t", quote = FALSE)
 
-# ========================== 运行 InferCNV ==========================
+# ========================== Run InferCNV ==========================
 
-# 创建 InferCNV 对象
+# Create InferCNV object
 infercnv_obj <- CreateInfercnvObject(
     raw_counts_matrix = count_mat,
     annotations_file = cnv_celltyping,
@@ -56,7 +56,7 @@ infercnv_obj <- CreateInfercnvObject(
     ref_group_names = REF_GROUP
 )
 
-# 运行分析
+# Run analysis
 infercnv_obj <- infercnv::run(
     infercnv_obj,
     cutoff = CUTOFF,
@@ -70,9 +70,9 @@ infercnv_obj <- infercnv::run(
     HMM = TRUE
 )
 
-# ========================== 可视化 ==========================
+# ========================== Visualization ==========================
 
-# 绘制热图
+# Plot heatmap
 pdf(file.path(OUTPUT_DIR, "heatmap.pdf"), width = 18, height = 12)
 ComplexHeatmap::Heatmap(
     t(as.matrix(infercnv_obj@expr.data)),
@@ -86,12 +86,12 @@ ComplexHeatmap::Heatmap(
 )
 dev.off()
 
-# ========================== CNV 评分计算 ==========================
+# ========================== CNV score calculation ==========================
 
-# 将 CNV 结果添加到 Seurat 对象
+# Add CNV results to the Seurat object
 scRNA_mnn[["CNV"]] <- CreateAssayObject(data = infercnv_obj@expr.data)
 
-# 计算每个细胞的 CNV 水平
+# Compute CNV level for each cell
 infercnv_level <- apply(as.data.frame(t(infercnv_obj@expr.data)), 1, function(x) {
     x[is.na(x)] <- 0
     return(sum(x))
@@ -103,7 +103,7 @@ infercnv_level <- round(
 infercnv_level <- infercnv_level[Cells(scRNA_mnn)]
 scRNA_mnn@meta.data$cnv_level <- infercnv_level
 
-# 绘制 CNV 水平图
+# Plot CNV level figure
 p1 <- FeaturePlot(scRNA_mnn, features = "cnv_level")
 p2 <- VlnPlot(scRNA_mnn, features = "cnv_level", group.by = "orig.ident", pt.size = 0)
 

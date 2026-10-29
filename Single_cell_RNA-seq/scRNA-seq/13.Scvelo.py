@@ -16,47 +16,47 @@ import pandas as pd
 import scanpy as sc
 import scvelo as scv
 
-# ========================== 配置参数 ==========================
+# ========================== Configuration parameters ==========================
 
-# 输入文件路径
+# Input file paths
 LOOM_FILE = "utils/data/test.loom"
 CELLS_FILE = "utils/data/subset_cells.txt"
 UMAP_FILE = "utils/data/umap_coords.csv"
 CELLTYPES_FILE = "utils/data/cell_types.csv"
 
-# 输出目录
+# Output directory
 OUTPUT_DIR = Path("13.Scvelo")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# 分析参数
+# Analysis parameters
 MIN_SHARED_COUNTS = 20
 N_TOP_GENES = 2000
 N_JOBS = 10
 
-# ========================== 数据加载 ==========================
+# ========================== Data loading ==========================
 
-# 1. 读取 loom 文件
+# 1. Read loom file
 vlm = sc.read_loom(LOOM_FILE, X_name='spliced')
 
-# 2. 细胞子集筛选
+# 2. Cell subset filtering
 subset_cells = pd.read_csv(CELLS_FILE, header=None)[0].tolist()
 vlm_subset = vlm[subset_cells, :].copy()
 
-# 3. 导入 Seurat UMAP
+# 3. Import Seurat UMAP
 umap_coords = pd.read_csv(UMAP_FILE, index_col=0)
 vlm_subset.obsm['X_umap'] = umap_coords.loc[vlm_subset.obs_names].values
 
-# 4. 导入细胞类型
+# 4. Import cell types
 cell_types = pd.read_csv(CELLTYPES_FILE, index_col=0)
 vlm_subset.obs['CellType'] = cell_types.loc[vlm_subset.obs_names, 'CellType']
 vlm_subset.obs["CellType"] = vlm_subset.obs["CellType"].astype("category")
 
-# ========================== 数据预处理 ==========================
+# ========================== Data preprocessing ==========================
 
 scv.pp.filter_and_normalize(vlm_subset, min_shared_counts=MIN_SHARED_COUNTS, n_top_genes=N_TOP_GENES)
 scv.pp.moments(vlm_subset)
 
-# 绘制 spliced/unspliced 比例图
+# Plot spliced/unspliced proportion plot
 scv.pl.proportions(
     vlm_subset,
     groupby="CellType",
@@ -65,15 +65,15 @@ scv.pl.proportions(
     fontsize=10
 )
 
-# ========================== RNA Velocity 计算 ==========================
+# ========================== RNA Velocity calculation ==========================
 
-# 计算动态速度
+# Compute dynamic velocity
 scv.tl.recover_dynamics(vlm_subset, n_jobs=N_JOBS)
-# 动态模型
+# Dynamic model
 scv.tl.velocity(vlm_subset, vkey='dynamical_velocity', mode='dynamical')
 scv.tl.velocity_graph(vlm_subset, vkey='dynamical_velocity', n_jobs=N_JOBS)
 
-# ========================== RNA Velocity 可视化 ==========================
+# ========================== RNA Velocity visualization ==========================
 
 # 1. Stream plot
 scv.pl.velocity_embedding_stream(
@@ -119,12 +119,12 @@ scv.pl.velocity_embedding_grid(
 )
 plt.savefig(OUTPUT_DIR / "scvelo_embedding_grid_groupby_CellType.svg", bbox_inches="tight", dpi=300)
 
-# ========================== Latent Time 分析 ==========================
+# ========================== Latent Time analysis ==========================
 
-# 计算 latent time
+# Compute latent time
 scv.tl.recover_latent_time(vlm_subset, vkey='dynamical_velocity')
 
-# 绘制 latent time
+# Plot latent time
 scv.pl.scatter(
     vlm_subset,
     basis='umap',
@@ -140,9 +140,9 @@ scv.pl.scatter(
 )
 plt.savefig(OUTPUT_DIR / "latent_time_by_dynamical.pdf", bbox_inches="tight", dpi=300)
 
-# ========================== 基因分析 ==========================
+# ========================== Gene analysis ==========================
 
-# 获取 top 基因
+# Get top genes
 top_genes = vlm_subset.var['fit_likelihood'].sort_values(ascending=False).index[:20]
 
 # Heatmap
@@ -156,7 +156,7 @@ scv.pl.heatmap(
 )
 plt.savefig(OUTPUT_DIR / "latent_time_heatmap.pdf", bbox_inches="tight", dpi=300)
 
-# Top likelihood gene 散点图
+# Top likelihood gene scatter plot
 scv.pl.scatter(
     vlm_subset,
     basis=top_genes[:1],
@@ -169,7 +169,7 @@ scv.pl.scatter(
 plt.tight_layout()
 plt.savefig(OUTPUT_DIR / "Top-likelihood_genes_groupby.pdf", dpi=300)
 
-# Top likelihood gene 时间轨迹图
+# Top likelihood gene time-trajectory plot
 scv.pl.scatter(
     vlm_subset,
     x='latent_time',
@@ -182,14 +182,14 @@ scv.pl.scatter(
 plt.tight_layout()
 plt.savefig(OUTPUT_DIR / "Top-likelihood_genes_alonetime_groupby.pdf", dpi=300)
 
-# ========================== 基因排名分析 ==========================
+# ========================== Gene ranking analysis ==========================
 
-# 动态基因排名
+# Dynamic gene ranking
 scv.tl.rank_dynamical_genes(vlm_subset, groupby='CellType')
 df_dynamical = scv.get_df(vlm_subset, 'rank_dynamical_genes/names')
 df_dynamical.to_excel(OUTPUT_DIR / "rank_dynamical_genes.xlsx", index=False)
 
-# 速度基因排名
+# Velocity gene ranking
 scv.tl.rank_velocity_genes(
     vlm_subset,
     vkey='dynamical_velocity',
@@ -203,7 +203,7 @@ print(f"文件已成功保存到：{OUTPUT_DIR}")
 print(f"1. 动态基因排名：{OUTPUT_DIR / 'rank_dynamical_genes.xlsx'}")
 print(f"2. 速度基因排名：{OUTPUT_DIR / 'rank_velocity_genes.xlsx'}")
 
-# ========================== 速度置信度分析 ==========================
+# ========================== Velocity confidence analysis ==========================
 
 scv.tl.velocity_confidence(vlm_subset, vkey='dynamical_velocity')
 keys = ['dynamical_velocity_length', 'dynamical_velocity_confidence']

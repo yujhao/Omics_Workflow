@@ -1,39 +1,39 @@
 #!/usr/bin/env Rscript
 # -*- coding: utf-8 -*-
 # ==============================================================================
-# AddModuleScore 基因集评分脚本
-# 为细胞添加自定义基因集的模块评分
+# AddModuleScore gene set scoring script
+# Add module scores of custom gene sets to cells
 # ==============================================================================
 
-# ========================== 配置参数 ==========================
+# ========================== Configuration parameters ==========================
 
 OUTPUT_DIR <- "6.AddModuleScore"
 GENESET_FILE <- "geneset.addmodeulescore.xls"
 SEED <- 1
 
-# ========================== 初始化 ==========================
+# ========================== Initialization ==========================
 
 dir.create(OUTPUT_DIR, showWarnings = FALSE)
 
-# ========================== 基因集加载与匹配 ==========================
+# ========================== Gene set loading and matching ==========================
 
-# 读取基因集
+# Read gene set
 extra_gene <- read.delim(GENESET_FILE, check.names = FALSE)
 if (dim(extra_gene)[2] == 1 && colnames(extra_gene)[1] == "gene") {
     colnames(extra_gene)[1] <- "extra"
 }
 
-# 转换为长格式
+# Convert to long format
 formated_extra_gene <- as.data.frame(tidyr::gather(extra_gene, key = "cluster", value = "GENE"))
 
-# 匹配基因
+# Match genes
 match_results <- CaseMatch(
     search = as.vector(formated_extra_gene$GENE),
     match = rownames(scRNA_mnn)
 )
 match_results <- Filter(function(x) length(x) > 0, match_results)
 
-# 记录未匹配的基因
+# Record unmatched genes
 filtered_gene <- formated_extra_gene$GENE[
     !formated_extra_gene$GENE %in% names(match_results) &
         formated_extra_gene$GENE != ""
@@ -50,7 +50,7 @@ if (length(filtered_gene) != 0) {
     print("有部分基因未匹配到，见：genes_not_matched.xls.")
 }
 
-# 使用匹配成功的基因
+# Use successfully matched genes
 formated_extra_gene <- formated_extra_gene %>%
     dplyr::filter(GENE %in% names(match_results)) %>%
     rowwise() %>%
@@ -58,16 +58,16 @@ formated_extra_gene <- formated_extra_gene %>%
     tidyr::unnest(cols = MATCHED) %>%
     dplyr::rename(folder_suffix = cluster, gene = MATCHED)
 
-# ========================== 计算模块评分 ==========================
+# ========================== Compute module score ==========================
 
-# 准备基因集列表
+# Prepare gene set list
 topn_markers <- formated_extra_gene
 topn_markers2vis <- list()
 for (clusterx in unique(topn_markers$folder_suffix)) {
     topn_markers2vis[[clusterx]] <- subset(topn_markers, folder_suffix == clusterx)$gene
 }
 
-# 计算模块评分
+# Compute module score
 scRNA_mnn <- AddModuleScore(
     scRNA_mnn,
     features = topn_markers2vis,
@@ -75,12 +75,12 @@ scRNA_mnn <- AddModuleScore(
     seed = SEED
 )
 
-# 修正列名
+# Fix column names
 colnames(scRNA_mnn@meta.data)[
     (dim(scRNA_mnn[[]])[2] - length(topn_markers2vis) + 1):dim(scRNA_mnn[[]])[2]
 ] <- names(topn_markers2vis)
 
-# ========================== 保存评分结果 ==========================
+# ========================== Save scoring results ==========================
 
 matrix <- scRNA_mnn@meta.data %>%
     dplyr::rename("Barcode" = "rawbc") %>%
@@ -93,9 +93,9 @@ write.table(
     file.path(OUTPUT_DIR, "addmodeulescore_plot.xls")
 )
 
-# ========================== 可视化 ==========================
+# ========================== Visualization ==========================
 
-# 箱线图/小提琴图
+# Box plot / violin plot
 for (i in colnames(matrix)[-(1:2)]) {
     p <- ggstatsplot::ggbetweenstats(
         matrix,

@@ -1,11 +1,11 @@
 #!/usr/bin/env Rscript
 # -*- coding: utf-8 -*-
 # ==============================================================================
-# Slingshot 拟时间分析脚本
-# 进行单细胞轨迹推断和基因动态表达分析
+# Slingshot pseudotime analysis script
+# Performs single-cell trajectory inference and gene dynamic expression analysis
 # ==============================================================================
 
-# ========================== 加载包 ==========================
+# ========================== Load packages ==========================
 
 library(Seurat)
 library(ggplot2)
@@ -20,7 +20,7 @@ library(scales)
 library(paletteer)
 library(viridis)
 
-# ========================== 配置参数 ==========================
+# ========================== Configuration parameters ==========================
 
 OUTPUT_DIR <- "11.Slingshot"
 DATA_FILE <- "data_ob_v3.rds"
@@ -28,23 +28,23 @@ MARKERS_FILE <- "top10_markers_for_each_cluster_anno.xls"
 START_CLUS <- "C1"
 N_KNOTS <- 5
 
-# ========================== 初始化 ==========================
+# ========================== Initialization ==========================
 
 dir.create(OUTPUT_DIR, showWarnings = FALSE)
 
-# ========================== 数据加载 ==========================
+# ========================== Data loading ==========================
 
-# 读取 Seurat 对象
+# Read Seurat object
 scRNAsub <- readRDS(DATA_FILE)
 
-# 转换为 SingleCellExperiment 对象
+# Convert to SingleCellExperiment object
 scRNAsub <- as.SingleCellExperiment(scRNAsub, assay = "RNA")
 
-# 设置聚类颜色
+# Set cluster colors
 colx <- c("#7fc97f", "#beaed4", "#fdc086", "#386cb0")
 names(colx) <- unique(scRNAsub$clusters)
 
-# ========================== Slingshot 拟时间推断 ==========================
+# ========================== Slingshot pseudotime inference ==========================
 
 sce <- slingshot(
     scRNAsub,
@@ -53,9 +53,9 @@ sce <- slingshot(
     clusterLabels = scRNAsub$clusters
 )
 
-# ========================== 可视化 ==========================
+# ========================== Visualization ==========================
 
-# 绘制聚类与拟时间曲线
+# Plot clusters and pseudotime curves
 pdf(file.path(OUTPUT_DIR, "Clustering_slingshot.pdf"), width = 8)
 par(mai = c(1, 1, 1, 2))
 plot(reducedDims(sce)[["UMAP"]], col = colx, pch = 16, asp = 1, cex = 1)
@@ -67,7 +67,7 @@ legend(
 )
 dev.off()
 
-# 绘制拟时间梯度
+# Plot pseudotime gradient
 colors <- colorRampPalette(brewer.pal(11, "Spectral")[-6])(100)
 plotcol <- colors[cut(sce$slingPseudotime_1, breaks = 100)]
 
@@ -77,19 +77,19 @@ plot(reducedDims(sce)$UMAP, col = plotcol, pch = 16, asp = 0.5)
 lines(SlingshotDataSet(sce), lwd = 2, col = "black")
 dev.off()
 
-# ========================== 差异基因与 GAM 拟合 ==========================
+# ========================== Differential genes and GAM fitting ==========================
 
-# 读取差异基因
+# Read differential genes
 diff.genes <- read.delim(MARKERS_FILE)
 pseudotimeED <- slingPseudotime(sce, na = FALSE)
 cellWeightsED <- slingCurveWeights(sce)
 
-# 准备表达矩阵
+# Prepare expression matrix
 counts <- scRNAsub@assays@data$counts
 counts <- as.data.frame(counts)
 counts <- counts[diff.genes$gene, ]
 
-# 拟合 GAM
+# Fit GAM
 sce_slingshot <- fitGAM(
     counts = as.matrix(counts),
     pseudotime = pseudotimeED,
@@ -99,11 +99,11 @@ sce_slingshot <- fitGAM(
 )
 saveRDS(sce_slingshot, file.path(OUTPUT_DIR, "gamlist_sce.rds"))
 
-# 关联检验
+# Association test
 ATres <- associationTest(sce_slingshot)
 topgenes <- rownames(ATres[order(ATres$pvalue), ])
 
-# ========================== 热图 ==========================
+# ========================== Heatmap ==========================
 
 pst.ord <- order(sce$slingPseudotime_1, na.last = NA)
 heatdata <- assays(sce)$counts[topgenes, pst.ord]
@@ -119,14 +119,14 @@ heatmap(
 )
 dev.off()
 
-# ========================== 基因动态表达模式 ==========================
+# ========================== Gene dynamic expression patterns ==========================
 
-# 关联检验结果
+# Association test results
 mean(rowData(sce_slingshot)$tradeSeq$converged)
 rowData(sce_slingshot)$assocRes <- associationTest(sce_slingshot, lineages = TRUE, l2fc = log2(2))
 assocRes <- rowData(sce_slingshot)$assocRes
 
-# 绘制基因平滑曲线
+# Plot gene smoothing curves
 gene_dynamic <- list()
 genes_plot <- c("Foxp1", "Erbb4")
 

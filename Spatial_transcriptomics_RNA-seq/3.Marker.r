@@ -1,4 +1,4 @@
-#3 marker基因鉴定
+#3 Marker gene identification
 dir.create("3.Marker")
 All_markers = FindAllMarkers(data_ob, 
                              only.pos = TRUE,

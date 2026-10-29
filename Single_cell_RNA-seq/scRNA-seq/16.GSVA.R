@@ -1,11 +1,11 @@
 #!/usr/bin/env Rscript
 # -*- coding: utf-8 -*-
 # ==============================================================================
-# GSVA (Gene Set Variation Analysis) 分析脚本
-# 进行通路活性评分及差异通路分析
+# GSVA (Gene Set Variation Analysis) analysis script
+# Performs pathway activity scoring and differential pathway analysis
 # ==============================================================================
 
-# ========================== 加载包 ==========================
+# ========================== Load packages ==========================
 
 suppressPackageStartupMessages({
     library(Seurat)
@@ -26,13 +26,13 @@ suppressPackageStartupMessages({
     library(stringr)
 })
 
-# ========================== 配置参数 ==========================
+# ========================== Configuration parameters ==========================
 
 OUTPUT_DIR <- "16.GSVA"
 DATA_FILE <- "data_ob_v3.rds"
 GMT_FILE <- "utils/reference/refdata-gex-GRCm39-2024-A/gmt/mouse_2024_kegg.gmt"
 
-# GSVA 参数
+# GSVA parameters
 METHOD <- "gsva"
 KCDF <- "Poisson"
 MIN_SZ <- 2
@@ -41,26 +41,26 @@ PARALLEL_SZ <- 6
 MX_DIFF <- TRUE
 TAU <- 1
 
-# 差异分析参数
+# Differential analysis parameters
 CONTRAST <- c("clusters", "all", "all")
 PVAL_CUTOFF <- 0.05
 TOP_N <- 10
 
-# ========================== 初始化 ==========================
+# ========================== Initialization ==========================
 
 dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
 
-# ========================== 数据加载 ==========================
+# ========================== Data loading ==========================
 
 seurat_ob <- readRDS(DATA_FILE)
 seurat_ob <- StashIdent(seurat_ob, save.name = "clusters")
 
-# 读取基因集
+# Read gene sets
 gene_sets <- getGmt(GMT_FILE)
 
-# ========================== GSVA 评分 ==========================
+# ========================== GSVA scoring ==========================
 
-# 计算 GSVA 评分
+# Calculate GSVA scores
 gsva_scores <- gsva(
     as.matrix(GetAssayData(seurat_ob, slot = "counts")),
     gene_sets,
@@ -73,7 +73,7 @@ gsva_scores <- gsva(
     tau = TAU
 )
 
-# 保存 GSVA 评分结果
+# Save GSVA score results
 gsva_scores1 <- as.data.frame(gsva_scores)
 gsva_scores1$geneset <- rownames(gsva_scores1)
 gsva_scores1 <- gsva_scores1 %>% dplyr::select(geneset, everything())
@@ -86,24 +86,24 @@ fwrite(
     sep = "\t"
 )
 
-# ========================== 差异通路分析 ==========================
+# ========================== Differential pathway analysis ==========================
 
-# 创建 GSVA Assay
+# Create GSVA Assay
 seurat_ob[["GSVA"]] <- CreateAssayObject(counts = gsva_scores)
 seurat_ob <- ScaleData(seurat_ob, assay = "GSVA")
 
-# 获取分组信息
+# Get grouping information
 assay_metadata <- seurat_ob@meta.data
 all_levels <- as.vector(unique(assay_metadata[, CONTRAST[1]]))
 groupby <- CONTRAST[1]
 
-# 生成所有对比组合
+# Generate all comparison combinations
 all_comparisions <- lapply(all_levels, function(x) {
     paste(CONTRAST[1], x, paste0(all_levels[-which(all_levels == x)], collapse = ","), sep = ":")
 })
 all_comparisions <- unlist(all_comparisions)
 
-# 执行差异分析
+# Perform differential analysis
 gsva_results <- c()
 for (contrastx in all_comparisions) {
     contrastsx <- unlist(strsplit(contrastx, ":", perl = TRUE))
@@ -123,7 +123,7 @@ for (contrastx in all_comparisions) {
     gsva_results <- rbind(gsva_results, DEG_gsva)
 }
 
-# 整理结果
+# Organize results
 gsva_results <- gsva_results %>%
     dplyr::select(geneset, logFC, AveExpr, t, p_val, adj.P.Val, cluster)
 colnames(gsva_results) <- c("geneset", "logFC", "avgExp", "t", "pval", "FDR", "Interested_group")
@@ -134,9 +134,9 @@ write.table(
     quote = FALSE, sep = "\t", col.names = TRUE, row.names = FALSE
 )
 
-# ========================== 筛选 Top 通路 ==========================
+# ========================== Select Top pathways ==========================
 
-# 筛除 p 不显著通路，筛选各细胞类型 top N 通路
+# Drop non-significant pathways and select top N pathways per cell type
 plot_term <- gsva_results %>%
     subset(pval < PVAL_CUTOFF) %>%
     group_by(Interested_group) %>%
@@ -149,9 +149,9 @@ write.table(
     quote = FALSE, sep = "\t", col.names = TRUE, row.names = FALSE
 )
 
-# ========================== 热图可视化 ==========================
+# ========================== Heatmap visualization ==========================
 
-# 制作用于标注显著性星号*的表格
+# Build table for marking significance asterisks*
 plot_data_p <- tidyr::spread(
     as.data.frame(plot_term[, c("geneset", "Interested_group", "t")]),
     Interested_group, t
@@ -160,7 +160,7 @@ plot_data_p <- tidyr::spread(
 plot_data_p <- plot_data_p[as.vector(unique(plot_term$geneset)), ]
 display_numbers <- ifelse(is.na(plot_data_p), "", "**")
 
-# 整体绘图数据表格
+# Overall plotting data table
 plot_data <- tidyr::spread(
     as.data.frame(gsva_results[, c("geneset", "Interested_group", "t")]),
     Interested_group, t
@@ -168,7 +168,7 @@ plot_data <- tidyr::spread(
     tibble::column_to_rownames(var = "geneset")
 plot_data <- plot_data[as.vector(unique(plot_term$geneset)), ]
 
-# 绘制热图
+# Plot heatmap
 p <- pheatmap(
     plot_data,
     scale = "row",
@@ -187,9 +187,9 @@ pdf(file.path(OUTPUT_DIR, "heatmap.pdf"))
 print(p)
 dev.off()
 
-# ========================== 柱状图可视化 ==========================
+# ========================== Barplot visualization ==========================
 
-# 两组间差异通路柱状图
+# Barplot of differential pathways between two groups
 DEG_gsva_tmp <- FindMarkers(
     seurat_ob,
     ident.1 = 1,
@@ -213,19 +213,19 @@ write.table(
     quote = FALSE, sep = "\t", row.names = FALSE
 )
 
-# 添加调控方向标记
+# Add regulation direction labels
 DEG_gsva_tmp$just <- ifelse(DEG_gsva_tmp$t < 0, 0, 1)
 DEG_gsva_tmp$Regulation <- ifelse(DEG_gsva_tmp$just == 1, "Up", "Down")
 DEG_gsva_tmp$Regulation <- factor(DEG_gsva_tmp$Regulation, levels = c("Up", "Down"))
 
-# 挑选 p < 0.05 的 top10 上调/下调通路
+# Select top10 up/down-regulated pathways with p < 0.05
 pathway2vis <- DEG_gsva_tmp %>%
     filter(pval < PVAL_CUTOFF) %>%
     group_by(Regulation) %>%
     arrange(abs(t)) %>%
     top_n(10, abs(t))
 
-# 绘制柱状图
+# Plot barplot
 pp <- ggplot(pathway2vis, aes(x = reorder(geneset, t), y = t)) +
     geom_col(aes(fill = Regulation)) +
     scale_fill_manual(values = c("#6CC570", "#2A5078")) +
@@ -243,7 +243,7 @@ pp <- ggplot(pathway2vis, aes(x = reorder(geneset, t), y = t)) +
     ylim(c(-max(abs(pathway2vis$t)) - 5, max(abs(pathway2vis$t)) + 5)) +
     labs(fill = "Group")
 
-# 保存图片
+# Save plot
 ggsave(
     file.path(OUTPUT_DIR, "barplot.pdf"),
     plot = pp, width = 18, height = 8

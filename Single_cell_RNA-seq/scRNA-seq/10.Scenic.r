@@ -1,11 +1,11 @@
 #!/usr/bin/env Rscript
 # -*- coding: utf-8 -*-
 # ==============================================================================
-# SCENIC 转录因子调控网络分析脚本
-# 包含 RSS 计算、CSI 分析、 Regulon 活性评估等功能
+# SCENIC transcription factor regulatory network analysis script
+# Includes RSS calculation, CSI analysis, Regulon activity evaluation, etc.
 # ==============================================================================
 
-# ========================== 加载包 ==========================
+# ========================== Load packages ==========================
 
 suppressPackageStartupMessages({
     library(RcisTarget)
@@ -32,16 +32,16 @@ suppressPackageStartupMessages({
     library(doMC)
 })
 
-# ========================== 配置参数 ==========================
+# ========================== Configuration parameters ==========================
 
 OUTPUT_DIR <- "10.SCENIC"
 DATA_FILE <- "data_ob_v3.rds"
 N_CORES <- 10
 
-# 物种选择: "human" 或 "mouse"
+# Species selection: "human" or "mouse"
 SPECIES <- "mouse"
 
-# 数据库路径（根据物种自动选择）
+# Database path (auto-selected based on species)
 SCENIC_DB_BASE <- "/hwstorage/oe-scrna/jhyu/github_jhyu/Omics_Workflow/utils/data/SCENIC"
 
 if (SPECIES == "human") {
@@ -64,31 +64,31 @@ if (SPECIES == "human") {
     stop("物种不支持，请选择 'human' 或 'mouse'")
 }
 
-# ========================== 初始化 ==========================
+# ========================== Initialization ==========================
 
 dir.create(OUTPUT_DIR, showWarnings = FALSE)
 setwd(OUTPUT_DIR)
 
-# ========================== 辅助函数定义 ==========================
+# ========================== Helper function definitions ==========================
 
-# 内部函数：熵计算
+# Internal function: entropy calculation
 .H <- function(pVect) {
     pVect <- pVect[pVect > 0]
     -sum(pVect * log2(pVect))
 }
 
-# Jensen-Shannon 散度
+# Jensen-Shannon divergence
 calcJSD <- function(pRegulon, pCellType) {
     (.H((pRegulon + pCellType) / 2)) - ((.H(pRegulon) + .H(pCellType)) / 2)
 }
 
-# 单个 Regulon 的 RSS 计算
+# RSS calculation for a single Regulon
 .calcRSS.oneRegulon <- function(pRegulon, pCellType) {
     jsd <- calcJSD(pRegulon, pCellType)
     1 - sqrt(jsd)
 }
 
-# 计算 RSS（Regulon Specificity Score）
+# Calculate RSS (Regulon Specificity Score)
 calcRSS <- function(AUC, cellAnnotation, cellTypes = NULL) {
     if (any(is.na(cellAnnotation))) stop("NAs in annotation")
     if (any(class(AUC) == "aucellResults")) AUC <- getAUC(AUC)
@@ -110,7 +110,7 @@ calcRSS <- function(AUC, cellAnnotation, cellTypes = NULL) {
     return(rss)
 }
 
-# RSS 热图内部函数
+# Internal function for RSS heatmap
 .plotRSS_heatmap <- function(rss, thr = NULL, row_names_gp = gpar(fontsize = 5),
                              order_rows = TRUE, cluster_rows = FALSE,
                              name = "RSS", verbose = TRUE, ...) {
@@ -138,7 +138,7 @@ calcRSS <- function(AUC, cellAnnotation, cellTypes = NULL) {
             cluster_rows = cluster_rows, ...)
 }
 
-# 绘制 RSS 图
+# Plot the RSS figure
 plotRSS <- function(rss, labelsToDiscard = NULL, zThreshold = 1,
                     cluster_columns = FALSE, order_rows = TRUE, thr = 0.01,
                     varName = "cellType",
@@ -182,7 +182,7 @@ plotRSS <- function(rss, labelsToDiscard = NULL, zThreshold = 1,
     invisible(list(plot = p, df = rss.df, rowOrder = rowOrder))
 }
 
-# 绘制单个细胞类型的 RSS 排名图
+# Plot RSS ranking for a single cell type
 plotRSS_oneSet <- function(rss, setName, n = 5) {
     rssThisType <- sort(rss[, setName], decreasing = TRUE)
     thisRss <- data.frame(regulon = names(rssThisType), rank = seq_along(rssThisType), rss = rssThisType)
@@ -199,7 +199,7 @@ plotRSS_oneSet <- function(rss, setName, n = 5) {
         theme_classic()
 }
 
-# Dot Heatmap 函数
+# Dot Heatmap function
 dotHeatmap <- function(enrichmentDf,
                       var.x = "Topic", var.y = "ID",
                       var.col = "FC", col.low = "dodgerblue", col.mid = "floralwhite", col.high = "brown1",
@@ -215,7 +215,7 @@ dotHeatmap <- function(enrichmentDf,
     return(p)
 }
 
-# CSI 模块活性计算
+# CSI module activity calculation
 calc_csi_module_activity <- function(clusters_df, regulonAUC, metadata, cell_type_column) {
     metadata$cell_type <- metadata[, cell_type_column]
     cell_types <- unique(metadata$cell_type)
@@ -264,7 +264,7 @@ calc_csi_module_activity <- function(clusters_df, regulonAUC, metadata, cell_typ
     return(csi_cluster_activity_wide)
 }
 
-# CSI 计算
+# CSI calculation
 calculate_csi <- function(regulonAUC, calc_extended = FALSE, verbose = FALSE) {
     compare_pcc <- function(vector_of_pcc, pcc) {
         pcc_larger <- length(vector_of_pcc[vector_of_pcc > pcc])
@@ -319,7 +319,7 @@ calculate_csi <- function(regulonAUC, calc_extended = FALSE, verbose = FALSE) {
     return(csi_regulons)
 }
 
-# CSI 模块可视化
+# CSI module visualization
 plot_csi_modules <- function(csi_df, nclust = 10, font_size_regulons = 6) {
     csi_test_mat <- csi_df %>%
         tidyr::spread(regulon_2, CSI)
@@ -342,7 +342,7 @@ plot_csi_modules <- function(csi_df, nclust = 10, font_size_regulons = 6) {
             clustering_distance_cols = "euclidean")
 }
 
-# 大矩阵相关计算
+# Large-matrix correlation calculation
 bigcor <- function(x, y = NULL, size = 2000, cores = 8, verbose = TRUE, ...) {
     tictoc::tic()
     if (!is.null(y) & NROW(x) != NROW(y)) stop("'x' and 'y' must have compatible dimensions!")
@@ -405,7 +405,7 @@ bigcor <- function(x, y = NULL, size = 2000, cores = 8, verbose = TRUE, ...) {
     return(resMAT)
 }
 
-# 写入 GMT 文件
+# Write GMT file
 write.gmt <- function(geneSet, gmt_file = "kegg2symbol.gmt") {
     sink(gmt_file)
     for (i in 1:length(geneSet)) {
@@ -417,15 +417,15 @@ write.gmt <- function(geneSet, gmt_file = "kegg2symbol.gmt") {
     sink()
 }
 
-# ========================== 主分析流程 ==========================
+# ========================== Main analysis pipeline ==========================
 
-# 初始化 SCENIC
+# Initialize SCENIC
 scenicOptions <- initializeScenic(org = ORG, dbDir = DB_DIR, dbs = DBS, nCores = N_CORES)
 
-# 读取数据
+# Read data
 scRNA_mnn <- readRDS(file.path("..", DATA_FILE))
 
-# 基因过滤
+# Gene filtering
 minCell4gene <- round(0.01 * ncol(scRNA_mnn))
 exprMat <- scRNA_mnn@assays$RNA@counts
 genesKept <- geneFiltering(
@@ -436,11 +436,11 @@ genesKept <- geneFiltering(
 )
 exprMat_filtered <- exprMat[genesKept, ]
 
-# 获取 TF 名称
+# Get TF names
 tf_names <- getDbTfs(scenicOptions)
 tf_names <- CaseMatch(search = tf_names, match = rownames(scRNA_mnn))
 
-# 运行 GENIE3
+# Run GENIE3
 arb.algo <- import("arboreto.algo")
 adjacencies <- arb.algo$grnboost2(
     as.data.frame(t(as.matrix(exprMat_filtered))),
@@ -451,39 +451,39 @@ adjacencies <- arb.algo$grnboost2(
 colnames(adjacencies) <- c("TF", "Target", "weight")
 saveRDS(adjacencies, file = getIntName(scenicOptions, "genie3ll"))
 
-# 计算相关矩阵
+# Calculate correlation matrix
 corrMat <- bigcor(t(as.matrix(exprMat_filtered)), size = 2000, cores = 20, method = "spearman")
 saveRDS(corrMat, file = getIntName(scenicOptions, "corrMat"))
 
-# 运行 SCENIC 流程
+# Run SCENIC pipeline
 runSCENIC_1_coexNetwork2modules(scenicOptions)
 runSCENIC_2_createRegulons(scenicOptions, coexMethod = "top10perTarget")
 
-# 重新初始化并评分
+# Re-initialize and score
 scenicOptions <- initializeScenic(org = ORG, dbDir = DB_DIR, dbs = DBS, nCores = 1)
 runSCENIC_3_scoreCells(scenicOptions, log2(as.matrix(exprMat_filtered) + 1))
 
-# ========================== 结果提取与保存 ==========================
+# ========================== Result extraction and saving ==========================
 
-# 提取 Regulon AUC
+# Extract Regulon AUC
 regulonAUC <- loadInt(scenicOptions, "aucell_regulonAUC")
 regulonAUC_mat <- AUCell::getAUC(regulonAUC)
 rownames(regulonAUC_mat) <- gsub("_", "-", rownames(regulonAUC_mat))
 regulonAUC_mat_out <- regulonAUC_mat[-grep(pattern = "-extended", rownames(regulonAUC_mat)), ]
 
-# 保存 Regulon 活性
+# Save Regulon activity
 write.table(
     as.data.frame(regulonAUC_mat_out) %>% tibble::rownames_to_column(var = "regulon"),
     file.path("regulon_activity.xls"),
     sep = "\t", col.names = TRUE, row.names = FALSE
 )
 
-# 添加到 Seurat 对象
+# Add to Seurat object
 scRNA_mnn[["SCENIC"]] <- CreateAssayObject(counts = regulonAUC_mat)
 scRNA_mnn <- ScaleData(scRNA_mnn, assay = "SCENIC")
 scRNA_mnn@tools$RunAUCell <- regulonAUC
 
-# 保存 TF 靶标信息
+# Save TF target information
 regulonTargetsInfo <- loadInt(scenicOptions, "regulonTargetsInfo")
 write.table(
     regulonTargetsInfo,
@@ -491,15 +491,15 @@ write.table(
     sep = "\t", col.names = TRUE, row.names = FALSE, quote = FALSE
 )
 
-# 保存 Regulon GMT
+# Save Regulon GMT
 regulons <- loadInt(scenicOptions, "regulons")
 sub_regulons <- gsub(" .*", "", rownames(regulonAUC_mat_out))
 regulons <- regulons[sub_regulons]
 write.gmt(regulons, gmt_file = "0.2.regulon_annotation.xls")
 
-# ========================== 热图可视化 ==========================
+# ========================== Heatmap visualization ==========================
 
-# 准备注释信息
+# Prepare annotation information
 Idents(object = scRNA_mnn) <- scRNA_mnn@meta.data$clusters
 cellInfo <- scRNA_mnn@meta.data
 col_anno <- as.data.frame(scRNA_mnn@meta.data) %>% tibble::rownames_to_column(var = "barcodes")
@@ -507,7 +507,7 @@ col_anno <- col_anno[, c("barcodes", "clusters")]
 col_anno <- col_anno %>% dplyr::arrange(clusters) %>% tibble::column_to_rownames(var = "barcodes")
 regulonAUC_plotdata <- regulonAUC_mat_out[, rownames(col_anno)]
 
-# 颜色设置
+# Color settings
 bks <- unique(c(seq(-2.5, 0, length = 100), seq(0, 2.5, length = 100)))
 color_use <- c("#7fc97f", "#beaed4", "#fdc086", "#386cb0", "#f0027f", "#a34e3b",
               "#666666", "#1b9e77", "#d95f02", "#7570b3", "#d01b2a", "#43acde")
@@ -515,7 +515,7 @@ cluster_levels <- as.character(unique(col_anno$clusters))
 names(color_use) <- cluster_levels
 annotation_colors <- list(clusters = color_use)
 
-# Regulon 活性热图
+# Regulon activity heatmap
 pdf("1.1.regulon_activity_heatmap_groupby_cells.pdf", height = 8)
 pheatmap::pheatmap(
     regulonAUC_plotdata,
@@ -533,7 +533,7 @@ pheatmap::pheatmap(
 )
 dev.off()
 
-# 按聚类平均活性
+# Average activity by cluster
 regulonActivity_byclusters <- sapply(split(rownames(cellInfo), cellInfo$clusters), function(cells)
     rowMeans(getAUC(regulonAUC)[, cells]))
 regulonActivity_byclusters_Scaled <- t(scale(t(regulonActivity_byclusters), center = TRUE, scale = TRUE))
@@ -545,7 +545,7 @@ write.table(
     sep = "\t", col.names = TRUE, row.names = FALSE, quote = FALSE
 )
 
-# Top10 Regulon 热图
+# Top10 Regulon heatmap
 regulonAUC_plotdata <- regulonActivity_byclusters_Scaled[1:10, ]
 pdf("1.3.regulon_activity_heatmap.pdf")
 pheatmap::pheatmap(
@@ -560,12 +560,12 @@ pheatmap::pheatmap(
 )
 dev.off()
 
-# ========================== RSS 分析 ==========================
+# ========================== RSS analysis ==========================
 
-# 计算 RSS
+# Calculate RSS
 rss <- calcRSS(AUC = getAUC(regulonAUC), cellAnnotation = cellInfo[colnames(regulonAUC), "clusters"])
 
-# 绘制 RSS 排名图
+# Plot RSS ranking
 pdf("2.2.RSS_ranking_plot.pdf")
 setName <- "1"
 n <- 5
@@ -586,38 +586,38 @@ p4 <- ggplot(thisRss, aes(x = rank, y = rss)) +
 print(p4)
 dev.off()
 
-# 保存 RSS 结果
+# Save RSS results
 write.table(
     thisRss[1:5, ],
     file.path("2.1.regulon_RSS_annotation.xls"),
     sep = "\t", col.names = TRUE, row.names = FALSE, quote = FALSE
 )
 
-# ========================== CSI 分析 ==========================
+# ========================== CSI analysis ==========================
 
-# 计算 CSI
+# Calculate CSI
 regulons_csi <- calculate_csi(regulonAUC, calc_extended = FALSE)
 
-# CSI 矩阵
+# CSI matrix
 csi_csi_wide <- regulons_csi %>% tidyr::spread(regulon_2, CSI)
 future_rownames <- csi_csi_wide$regulon_1
 csi_csi_wide <- as.matrix(csi_csi_wide[, 2:ncol(csi_csi_wide)])
 rownames(csi_csi_wide) <- future_rownames
 
-# 层次聚类
+# Hierarchical clustering
 regulons_hclust <- hclust(dist(csi_csi_wide, method = "euclidean"))
 nclust <- 4
 clusters <- cutree(regulons_hclust, k = nclust)
 clusters_df <- data.frame("regulon" = names(clusters), "csi_module" = clusters)
 
-# CSI 模块活性
+# CSI module activity
 cellinfo <- scRNA_mnn@meta.data
 csi_cluster_activity_wide <- calc_csi_module_activity(
     clusters_df, regulonAUC, cellinfo, cell_type_column = "seurat_clusters"
 )
 rownames(csi_cluster_activity_wide) <- paste0("module", c(1:nclust))
 
-# CSI 活性热图
+# CSI activity heatmap
 plot <- pheatmap::pheatmap(
     csi_cluster_activity_wide,
     show_colnames = TRUE,
@@ -636,13 +636,13 @@ ggsave(
     plot = plot, width = 8, height = 8, dpi = 1000, limitsize = FALSE
 )
 
-# CSI 相关热图
+# CSI correlation heatmap
 plot <- plot_csi_modules(regulons_csi, nclust = nclust)
 pdf("3.2.regulons_csi_correlation_heatmap.pdf")
 print(plot)
 dev.off()
 
-# 保存 CSI 模块注释
+# Save CSI module annotation
 write.table(
     clusters_df,
     "3.1.csi_module_annotation.xls",

@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from typing import Optional
 
-# 配置日志
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -60,7 +60,7 @@ def load_samples(root_dir, sample_dirs):
     for sample in sample_dirs:
         sample_path = os.path.join(root_dir, sample)
 
-        # 尝试读取 h5 文件
+        # Try to read the h5 file
         h5_path = os.path.join(sample_path, "filtered_feature_bc_matrix.h5")
         mtx_path = os.path.join(sample_path, "filtered_feature_bc_matrix")
 
@@ -73,20 +73,20 @@ def load_samples(root_dir, sample_dirs):
         else:
             raise FileNotFoundError(f"找不到样本 {sample} 的数据文件")
 
-        # 添加样本信息
+        # Add sample info
         adata.obs['sampleid'] = sample
-        adata.obs['batchid'] = sample  # 批次信息与样本相同
+        adata.obs['batchid'] = sample  # Batch info is the same as the sample
 
-        # 确保 var_names 唯一
+        # Ensure var_names are unique
         adata.var_names_make_unique()
 
         adata_list.append(adata)
 
-    # 合并所有样本
+    # Merge all samples
     LOGGER.info(f"合并 {len(adata_list)} 个样本...")
     adata_merged = ad.concat(adata_list, join='outer', merge='same')
 
-    # 确保 obs_names 唯一
+    # Ensure obs_names are unique
     adata_merged.obs_names_make_unique()
 
     LOGGER.info(f"合并完成: {adata_merged.n_obs} 个细胞, {adata_merged.n_vars} 个基因")
@@ -116,25 +116,25 @@ def calculate_qc_metrics(
     """
     LOGGER.info("开始计算 QC 指标...")
 
-    # 加载基因列表
+    # Load gene lists
     mt_genes = load_gene_list(os.path.join(refgenome, mt_genelist_file))
     hb_genes = load_gene_list(os.path.join(refgenome, hb_genelist_file))
 
     LOGGER.info(f"线粒体基因数: {len(mt_genes)}")
     LOGGER.info(f"血红蛋白基因数: {len(hb_genes)}")
 
-    # 标记基因（使用 isin 而不是 startswith）
+    # Flag genes (use isin instead of startswith)
     adata.var["mt"] = adata.var_names.isin(mt_genes)
     adata.var["hb"] = adata.var_names.isin(hb_genes)
 
-    # 计算 QC 指标
+    # Compute QC metrics
     sc.pp.calculate_qc_metrics(
         adata,
         qc_vars=["mt", "hb"],
         inplace=True
     )
 
-    # 统一命名（Seurat 风格）
+    # Standardize naming (Seurat style)
     adata.obs["nFeature_RNA"] = adata.obs["n_genes_by_counts"]
     adata.obs["nCount_RNA"] = adata.obs["total_counts"]
     adata.obs["percent.mito"] = adata.obs["pct_counts_mt"] / 100
@@ -178,7 +178,7 @@ def filter_cells(
 
     n_before = adata.n_obs
 
-    # 过滤条件
+    # Filter conditions
     filter_mask = (
         (adata.obs["nFeature_RNA"] >= mingene) &
         (adata.obs["nFeature_RNA"] <= maxgene) &
@@ -188,7 +188,7 @@ def filter_cells(
         (adata.obs["percent.HB"] <= hbfilter)
     )
 
-    # 应用过滤
+    # Apply filtering
     adata = adata[filter_mask].copy()
 
     n_after = adata.n_obs
@@ -215,17 +215,17 @@ def remove_doublets(adata, random_state=2025):
 
         n_before = adata.n_obs
 
-        # 保存原始计数
+        # Save original counts
         adata.layers["counts"] = adata.X.copy()
 
-        # 运行双细胞检测
+        # Run doublet detection
         clf = doubletdetection.BoostClassifier(
             n_iters=10,
             random_state=random_state
         )
         doublets = clf.fit(adata.X).predict()
 
-        # 去除双细胞
+        # Remove doublets
         adata = adata[doublets == 0].copy()
 
         n_after = adata.n_obs
@@ -258,7 +258,7 @@ def plot_qc_violin(adata, output_dir, title_suffix, group_col="sampleid"):
 
     metrics = ["nFeature_RNA", "nCount_RNA", "percent.mito", "percent.HB"]
 
-    # 检查分组列是否存在
+    # Check whether the grouping column exists
     if group_col not in adata.obs.columns:
         LOGGER.warning(f"列 {group_col} 不存在，使用所有数据绘制")
         adata.obs["_group"] = "All"
@@ -287,7 +287,7 @@ def plot_qc_violin(adata, output_dir, title_suffix, group_col="sampleid"):
 
     plt.tight_layout()
 
-    # 保存图片
+    # Save figure
     plt.savefig(os.path.join(output_dir, f"QC_metrics_{title_suffix}.png"), dpi=300, bbox_inches='tight')
     plt.savefig(os.path.join(output_dir, f"QC_metrics_{title_suffix}.pdf"), bbox_inches='tight')
     plt.close()
@@ -317,13 +317,13 @@ def generate_qc_statistics(adata_before, adata_after_filter, adata_after_doublet
 
     os.makedirs(outdir, exist_ok=True)
 
-    # 获取所有样本 ID
+    # Get all sample IDs
     if group_col in adata_before.obs.columns:
         sample_ids = adata_before.obs[group_col].unique()
     else:
         sample_ids = ["All"]
 
-    # 1. 生成 cell_count_before_after_QC.xls
+    # 1. Generate cell_count_before_after_QC.xls
     cell_count_data = []
     for sample in sample_ids:
         if group_col in adata_before.obs.columns:
@@ -363,7 +363,7 @@ def generate_qc_statistics(adata_before, adata_after_filter, adata_after_doublet
     cell_count_df.to_csv(os.path.join(outdir, "cell_count_before_after_QC.xls"), sep="\t", index=False)
     LOGGER.info("已保存 cell_count_before_after_QC.xls")
 
-    # 2. 生成 cell_statitics_before_after_QC.xls
+    # 2. Generate cell_statitics_before_after_QC.xls
     cell_stat_data = []
     for sample in sample_ids:
         if group_col in adata_before.obs.columns:
@@ -442,25 +442,25 @@ def save_results(adata, outdir, adata_before=None, adata_after_filter=None, grou
     """
     LOGGER.info(f"保存结果到 {outdir}...")
 
-    # 创建输出目录
+    # Create output directory
     os.makedirs(outdir, exist_ok=True)
 
-    # 保存 h5ad
+    # Save h5ad
     adata.write_h5ad(os.path.join(outdir, "qc_result.h5ad"))
     LOGGER.info("已保存 qc_result.h5ad")
 
-    # 保存 QC 指标
+    # Save QC metrics
     adata.obs.to_csv(os.path.join(outdir, "qc_metrics.csv"), index=False)
     LOGGER.info("已保存 qc_metrics.csv")
 
-    # 生成 QC 统计文件
+    # Generate QC statistics files
     if adata_before is not None and adata_after_filter is not None:
         generate_qc_statistics(adata_before, adata_after_filter, adata, outdir, group_col=group_col)
 
-        # 绘制 QC 小提琴图（过滤前）
+        # Plot QC violin plots (before filtering)
         plot_qc_violin(adata_before, outdir, "beforeQC", group_col=group_col)
 
-        # 绘制 QC 小提琴图（过滤后）
+        # Plot QC violin plots (after filtering)
         plot_qc_violin(adata_after_filter, outdir, "afterQC", group_col=group_col)
 
     LOGGER.info("所有结果保存完成")
@@ -474,17 +474,17 @@ def main():
         description="第一步：质量控制（QC 过滤 + 双细胞去除）"
     )
 
-    # 输入输出
+    # Input/Output
     parser.add_argument("-i", "--input", required=True, help="输入文件路径 (.h5ad) 或包含样本目录的根目录")
     parser.add_argument("-o", "--outdir", required=True, help="输出目录")
     parser.add_argument("--samples", nargs="+", default=None, help="样本目录列表 (如: A1 A2 P1 P2)")
 
-    # 参考基因组
+    # Reference genome
     parser.add_argument("--refgenome", required=True, help="参考基因组目录路径")
     parser.add_argument("--mt_genelist", default="MT_genelist.gmt", help="线粒体基因列表文件名")
     parser.add_argument("--hb_genelist", default="HB_genelist.gmt", help="血红蛋白基因列表文件名")
 
-    # QC 过滤参数
+    # QC filtering parameters
     parser.add_argument("--mingene", type=int, default=200, help="每个细胞最少基因数 (default: 200)")
     parser.add_argument("--maxgene", type=int, default=7500, help="每个细胞最多基因数 (default: 7500)")
     parser.add_argument("--minumi", type=int, default=1000, help="每个细胞最少 UMI 数 (default: 1000)")
@@ -492,23 +492,23 @@ def main():
     parser.add_argument("--mtfilter", type=float, default=0.2, help="线粒体基因比例上限 (default: 0.2)")
     parser.add_argument("--hbfilter", type=float, default=0.05, help="血红蛋白基因比例上限 (default: 0.05)")
 
-    # 双细胞检测
+    # Doublet detection
     parser.add_argument("--doublet_random_state", type=int, default=2025, help="双细胞检测随机种子 (default: 2025)")
     parser.add_argument("--skip_doublet_removal", action="store_true", help="跳过双细胞去除步骤")
 
     args = parser.parse_args()
 
-    # 读取数据
+    # Read data
     if args.samples:
-        # 从多个样本目录读取数据
+        # Read data from multiple sample directories
         LOGGER.info(f"从目录读取多个样本: {args.input}")
         adata = load_samples(args.input, args.samples)
     else:
-        # 读取单个 h5ad 文件
+        # Read a single h5ad file
         LOGGER.info(f"读取数据: {args.input}")
         adata = sc.read_h5ad(args.input)
 
-    # 1. QC 指标计算
+    # 1. Compute QC metrics
     adata = calculate_qc_metrics(
         adata,
         refgenome=args.refgenome,
@@ -516,10 +516,10 @@ def main():
         hb_genelist_file=args.hb_genelist
     )
 
-    # 保存过滤前的数据（用于统计）
+    # Save pre-filtering data (for statistics)
     adata_before = adata.copy()
 
-    # 2. 过滤细胞
+    # 2. Filter cells
     adata_after_filter = filter_cells(
         adata,
         mingene=args.mingene,
@@ -531,13 +531,13 @@ def main():
     )
     adata = adata_after_filter
 
-    # 3. 去除双细胞（可选）
+    # 3. Remove doublets (optional)
     if args.skip_doublet_removal:
         LOGGER.info("跳过双细胞去除步骤")
     else:
         adata = remove_doublets(adata, random_state=args.doublet_random_state)
 
-    # 4. 保存结果（包含 QC 统计）
+    # 4. Save results (including QC statistics)
     save_results(
         adata,
         args.outdir,

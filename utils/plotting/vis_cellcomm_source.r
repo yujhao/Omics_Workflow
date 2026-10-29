@@ -82,7 +82,7 @@ ParseCpdb <- function(
     })
     lr_df <- do.call(rbind, lr_df)
 
-# 将新列添加到数据框
+# Add new columns to the data frame
 lr_df$receptor_expr=""
 lr_df$ligand_expr=""
 
@@ -135,26 +135,26 @@ LRDotplot <- function(
 
   plot.data = filter_data[,c("pair","clusters","pval","mean")]
   colnames(plot.data) = c('pair', 'clusters', 'pvalue', 'mean')
-  # 为横坐标排序
+  # Sort the x-axis
   clusters_pairs = as.character(unique(plot.data$clusters))
-  # 提取横坐标括号外和括号内的字符串
+  # Extract strings before/after the parentheses on the x-axis
   clusters_df <- data.frame(name = clusters_pairs, pair = stringr::str_extract(clusters_pairs, "^[^\\(]+"), 
                             group = stringr::str_extract(clusters_pairs, "(?<=\\()[^\\)]+")) 
-  # 根据细胞类型首字符和data文件中的分组顺序排序
+  # Sort by the first character of the cell type and the group order in the data file
   clusters_df <- clusters_df[order(clusters_df$pair,match(clusters_df$group, unique(data$group))), ]  
   if (! is.na(unique(clusters_df$group)) & ! remove.isolate ){
-    #如果保留所有受配体和分组列
+    #If keeping all ligand-receptor and group columns
     clusters_levels = NULL
     for (i in unique(clusters_df$pair)){ clusters_levels = c(clusters_levels,paste0(i , "(",unique(clusters_df$group), ")" ))}
     diff_clusters = setdiff(clusters_levels, unique(plot.data$clusters)) 
-    if(length(diff_clusters) != 0 ){ #所有分组受配体都一致就不用添加na_df
+    if(length(diff_clusters) != 0 ){ #no need to add na_df if all group ligand-receptors are identical
       na_df = data.frame(pair = plot.data$pair[1:length(diff_clusters)], clusters = diff_clusters, pvalue = NA, mean = NA)
       plot.data = rbind(plot.data, na_df)
     }
   } else { 
     clusters_levels = as.character(clusters_df$name) 
   }
-  # 给横坐标加上levels
+  # Add levels to the x-axis
   plot.data$clusters = factor(plot.data$clusters, levels = clusters_levels)
   plot.data$pvalue=as.numeric(plot.data$pvalue) 
   plot.data$mean=as.numeric(plot.data$mean)
@@ -171,7 +171,7 @@ LRDotplot <- function(
           axis.title=element_blank(),
           text = element_text(),
           panel.border = element_rect(size = 0.7, linetype = "solid", colour = "black"))
-# 如果有分组，添加文字颜色和竖线
+# If groups exist, add text colors and vertical lines
   if( ! is.na(unique(clusters_df$group))){
     clusters_df <- data.frame(name = clusters_levels, pair = stringr::str_extract(clusters_levels, "^[^\\(]+"), 
                             group = stringr::str_extract(clusters_levels, "(?<=\\()[^\\)]+")) 
@@ -181,9 +181,9 @@ LRDotplot <- function(
     color <- SelectColors(palette = "tableau10medium",length(unique(dataset.name.order)))
     names(color) <- unique(dataset.name.order)
     xtick.color <- color[dataset.name.order]
-    # 计算各受配体细胞类型关系对的长度（lengths表示各元素差异序列）
+    # Compute the length of each ligand-receptor cell-type pair (lengths = run-length encoding)
     diffs <- rle(as.vector(clusters_df$pair))$lengths
-    # cumsum计算每个子序列的结束位置
+    # cumsum computes the end position of each subsequence
     xintercept = cumsum(diffs) + 0.5
     dotplot <- dotplot + theme(axis.text.x = element_text(colour = xtick.color)) + 
                         geom_vline(xintercept = xintercept[-length(xintercept)], linetype = "dashed", color = "grey60", size = 0.4)
@@ -419,15 +419,15 @@ LRCircos <- function(
     circos.axis(sector.index = df[i,4],direction = "outside",
                 labels = FALSE,col = 'black', minor.ticks = 0, major.at = seq(0.5, length(df$ligand)/2))
     circos.text(
-      x = 0.5,                     # x轴位置
-      y = 1.2,                     # 控制距离圆弧的距离（越大越外）
-      labels = df[i, 3],           # 显示的文字
+      x = 0.5,                     # x-axis position
+      y = 1.2,                     # distance from the arc (larger = further out)
+      labels = df[i, 3],           # text to display
       sector.index = df[i, 4],
-      facing = "clockwise",        # 顺时针方向
-      niceFacing = TRUE,           # 让文字自动调整朝向
-      cex = labels.cex * 1.5,      # 字体大小（略微放大）
-      font = 2,                    # 加粗（相当于 fontface="bold"）
-      adj = c(0, 0.5)             # 对齐方式
+      facing = "clockwise",        # clockwise direction
+      niceFacing = TRUE,           # auto-adjust text orientation
+      cex = labels.cex * 1.5,      # font size (slightly enlarged)
+      font = 2,                    # bold (equivalent to fontface="bold")
+      adj = c(0, 0.5)             # alignment
     )
   }
 
@@ -508,7 +508,7 @@ LRCircos <- function(
 
   lgd_expr <- Legend(title = 'gene expression', at = expr_range,
                      col_fun = col_fun, title_position = 'topleft',
-                    title_gp = gpar(fontsize = 21, fontface = "bold"),  # 增大图例标题字体
+                    title_gp = gpar(fontsize = 21, fontface = "bold"),  # Increase legend title font size
                     title_gap = unit(3, "mm"),
                     labels_gp = gpar(fontsize = 19) )
 #  lgd_pval = Legend(title = "ligand_receptor pval", at = 1:2,
@@ -517,7 +517,7 @@ LRCircos <- function(
   lgd_pval = Legend(title = "ligand_receptor pval", at = 1:2,
                     labels = c(paste('lr_pval < ', pval)),
                     type = "lines", legend_gp = gpar(lty = 1:1),
-                    title_gp = gpar(fontsize = 21, fontface = "bold"),  # 增大图例标题字体
+                    title_gp = gpar(fontsize = 21, fontface = "bold"),  # Increase legend title font size
                     title_gap = unit(3, "mm"),
                     labels_gp = gpar(fontsize = 19) )
   lgd_cell = Legend(title = "cell type", at = 1:length(unique(df$ligand_cell)),
@@ -525,7 +525,7 @@ LRCircos <- function(
                     grid_height = unit(ifelse(length(unique(df$ligand_cell))/2<6,6,length(unique(df$ligand_cell))/2), "mm"),
                     legend_gp = gpar(fill = cell_col[1:length(unique(df$ligand_cell))]),
                     title_position = "topleft",
-                    title_gp = gpar(fontsize = 21, fontface = "bold"),  # 增大图例标题字体
+                    title_gp = gpar(fontsize = 21, fontface = "bold"),  # Increase legend title font size
                     title_gap = unit(2, "mm"),
                     labels_gp = gpar(fontsize = 19) )
   if(is.null(lrid$comm_type)){
@@ -535,7 +535,7 @@ LRCircos <- function(
                        labels = as.character(unique(lrid$comm_type)), type = 'lines',
                        legend_gp = gpar( col = comm_col[1:length(unique(lrid$comm_type))]),
                        title_position = "topleft",
-                       title_gp = gpar(fontsize = 21, fontface = "bold"),  # 增大图例标题字体
+                       title_gp = gpar(fontsize = 21, fontface = "bold"),  # Increase legend title font size
                        labels_gp = gpar(fontsize = 19) )
     lgd_list_vertical = packLegend(lgd_expr, lgd_cell, lgd_pval, lgd_comm,row_gap = unit(4, "mm"))
   }
@@ -564,7 +564,7 @@ LRChorddiagram <- function(
   #write.table(data,file.path(output, "cell_comm_chorddiagram_summary.xls"),quote=F,sep="\t",row.names=F)
 
   ## col set
-  #如果原始数据有levels保持原来的顺序，如果没有按照字母排序
+  #If the original data has levels, keep the original order; otherwise sort alphabetically
   if(is.factor(data$receptor_cell)){
     celltypes = unique(c(levels(data$receptor_cell),levels(data$ligand_cell)))
   }else{
@@ -573,8 +573,8 @@ LRChorddiagram <- function(
   #colx = SelectColors(palette = opt$colorschema, length(celltypes))
   #names(colx) <- celltypes
   if (extra_legend != TRUE){
-    par(mar = c(20, 20, 20, 20),  # 内边距：上、右、下、左（数值越大留白越多）
-        xpd = TRUE)            # 允许文字绘制到边距区域（避免标签被裁剪）
+    par(mar = c(20, 20, 20, 20),  # Margins: top, right, bottom, left (larger value = more whitespace)
+        xpd = TRUE)            # Allow text to be drawn into the margin area (avoid label clipping)
     }
   ## plot 
   chordDiagram(data, 
@@ -588,7 +588,7 @@ LRChorddiagram <- function(
               preAllocateTracks = 1
               )
   if (extra_legend != TRUE){
-    # 在空轨迹中放置文本标签
+    # Place text labels in the empty track
     circos.track(
       track.index = 1, panel.fun = function(x, y) {
         circos.text(
@@ -599,14 +599,14 @@ LRChorddiagram <- function(
       }, bg.border = NA
     )
     }
-# # 单独添加图例
+# Add legend separately
   if (extra_legend == TRUE){
   legend("right", 
-        legend = celltypes,  # 图例内容为细胞类型
-        fill = colx[celltypes],  # 使用对应的颜色
+        legend = celltypes,  # Legend entries are the cell types
+        fill = colx[celltypes],  # Use the corresponding colors
         title = expression(bold("Ligand & Receptor Cells")), 
-        cex = 1.3,               # 图例文字大小
-        bty = "n"               # 不绘制图例边框
+        cex = 1.3,               # Legend text size
+        bty = "n"               # Do not draw a legend border
         )
     }
 
@@ -647,8 +647,8 @@ LRHeatmap <- function(
           row_names_max_width = unit(8, "cm"),
           column_names_max_height = unit(8, "cm"),
           heatmap_legend_param = list(
-          title_gp = gpar(fontsize = 14, fontface = "bold"),   # 图例标题字体
-          labels_gp = gpar(fontsize = 14, fontface = "bold"),  # 图例刻度字体
+          title_gp = gpar(fontsize = 14, fontface = "bold"),   # Legend title font
+          labels_gp = gpar(fontsize = 14, fontface = "bold"),  # Legend tick-label font
           legend_height = unit(4, "cm")
           )
   )
@@ -667,7 +667,7 @@ LRBarplot <- function(
         dplyr::summarize(n=n()) %>% group_by(ligand_cell) %>% arrange(ligand_cell) %>% mutate(cumsum = sum(n))
 
   ## sort the ligand_cell
-  #如果之前没有指定顺序需要重新指定，否则保持原来的顺序即可
+  #If the order was not specified earlier, reassign it; otherwise keep the original order
   if(!is.factor(plot_data$ligand_cell)){
     celltype = unique(plot_data[order(as.matrix(plot_data)[,4],decreasing=T),]$ligand_cell)
     plot_data$ligand_cell = factor(plot_data$ligand_cell,levels=celltype)
@@ -686,7 +686,7 @@ LRBarplot <- function(
             axis.text.x = element_text(size = 14, angle = 45, hjust = 1, colour = "black"),
             axis.text.y = element_text(size = 14, colour = "black"),
             axis.line = element_line(size=0.5, colour = "black"),
-            legend.title = element_text(size = 15, face = "bold", color = "black"),   # 图例标题字体
+            legend.title = element_text(size = 15, face = "bold", color = "black"),   # Legend title font
             legend.text = element_text(size = 14, color = "black"),
             plot.margin = unit(c(3,3,3,3), "cm"))
   return(p)

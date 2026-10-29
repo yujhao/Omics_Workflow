@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from typing import Optional
 
-# 配置日志
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -47,12 +47,12 @@ def run_pca(
     """
     LOGGER.info("开始 PCA 降维...")
 
-    # 如果还没有 HVG，先选择
+    # If HVG not yet selected, select them first
     if 'highly_variable' not in adata.var.columns:
         LOGGER.info("选择高变基因...")
         sc.pp.highly_variable_genes(adata, n_top_genes=2000, flavor='seurat_v3')
 
-    # 只使用高变基因
+    # Use only highly variable genes
     adata_hvg = adata[:, adata.var['highly_variable']].copy()
 
     # Scaling
@@ -63,8 +63,8 @@ def run_pca(
     sc.tl.pca(adata_hvg, n_comps=n_comps)
     LOGGER.info(f"PCA 完成，{n_comps} 个组件")
 
-    # 将 PCA 结果复制回原 adata
-    # 注意：varm 和 uns 不需要复制，因为只需要 obsm 中的 PCA 坐标用于后续分析
+    # Copy the PCA results back to the original adata
+    # Note: varm and uns need not be copied; only the PCA coordinates in obsm are needed for downstream analysis
     adata.obsm['X_pca'] = adata_hvg.obsm['X_pca']
 
     return adata, n_pcs
@@ -92,7 +92,7 @@ def run_harmony(
     try:
         import harmony_pytorch as harmony
 
-        # 运行 Harmony
+        # Run Harmony
         sc.external.pp.harmony_integrate(
             adata,
             key=batch_key,
@@ -138,7 +138,7 @@ def run_clustering(
     """
     LOGGER.info(f"开始聚类，方法={method}, resolution={resolution}...")
 
-    # 构建邻域图
+    # Build neighborhood graph
     sc.pp.neighbors(
         adata,
         n_neighbors=n_neighbors,
@@ -147,21 +147,21 @@ def run_clustering(
     )
     LOGGER.info(f"邻域图构建完成，n_neighbors={n_neighbors}, n_pcs={n_pcs}")
 
-    # 聚类
+    # Clustering
     if method == "leiden":
         sc.tl.leiden(adata, resolution=resolution)
-        # 如果 clusters 已存在，先删除
+        # If clusters already exists, delete it first
         if 'clusters' in adata.obs.columns:
             adata.obs.drop(columns=['clusters'], inplace=True)
         adata.obs.rename(columns={"leiden": "clusters"}, inplace=True)
     elif method == "louvain":
         sc.tl.louvain(adata, resolution=resolution)
-        # 如果 clusters 已存在，先删除
+        # If clusters already exists, delete it first
         if 'clusters' in adata.obs.columns:
             adata.obs.drop(columns=['clusters'], inplace=True)
         adata.obs.rename(columns={"louvain": "clusters"}, inplace=True)
 
-    # 确保 clusters 是 categorical 类型
+    # Ensure clusters is categorical type
     adata.obs['clusters'] = pd.Categorical(adata.obs['clusters'])
 
     n_clusters = adata.obs['clusters'].nunique()
@@ -230,7 +230,7 @@ def find_marker_genes(
     """
     LOGGER.info(f"查找 marker 基因，方法={method}...")
 
-    # 运行差异分析
+    # Run differential analysis
     sc.tl.rank_genes_groups(
         adata,
         groupby='clusters',
@@ -239,10 +239,10 @@ def find_marker_genes(
         use_raw=False
     )
 
-    # 提取结果
+    # Extract results
     result = adata.uns['rank_genes_groups']
 
-    # 转换为 DataFrame
+    # Convert to DataFrame
     all_results = []
     for cluster in result['names'].dtype.names:
         cluster_data = pd.DataFrame({
@@ -280,7 +280,7 @@ def add_gene_annotation(df, anno_df, gene_col="gene"):
     DataFrame
         添加注释后的数据表
     """
-    # 合并注释
+    # Merge annotations
     df_merged = df.merge(
         anno_df,
         left_on=gene_col,
@@ -288,18 +288,18 @@ def add_gene_annotation(df, anno_df, gene_col="gene"):
         how="left"
     )
 
-    # 删除重复的 id 列
+    # Drop the duplicate id column
     if "id" in df_merged.columns:
         df_merged = df_merged.drop(columns=["id"])
 
-    # 填充缺失的注释为 '--'
+    # Fill missing annotations with '--'
     df_merged = df_merged.fillna('--')
 
-    # 重新排列列顺序
+    # Reorder columns
     base_cols = ["cluster", "gene", "scores", "logfoldchanges", "pvals", "pvals_adj"]
     anno_cols = ["ensembl_id", "gene_type", "gene_description", "TFs_Family", "GO_id", "GO_term", "KEGG_id", "KEGG_description"]
 
-    # 保留存在的列
+    # Keep only existing columns
     ordered_cols = [col for col in base_cols + anno_cols if col in df_merged.columns]
     other_cols = [col for col in df_merged.columns if col not in ordered_cols]
     ordered_cols.extend(other_cols)
@@ -333,7 +333,7 @@ def plot_embeddings(
 
     os.makedirs(output_dir, exist_ok=True)
 
-    # 设置 scanpy 图片保存目录
+    # Set the scanpy figure output directory
     sc.settings.figdir = output_dir
 
     for color in color_by:
@@ -343,7 +343,7 @@ def plot_embeddings(
 
         try:
             if embedding_method in ["umap", "both"]:
-                # UMAP 图
+                # UMAP plot
                 sc.pl.umap(
                     adata,
                     color=color,
@@ -354,7 +354,7 @@ def plot_embeddings(
                 LOGGER.info(f"已保存 UMAP 图：umap_{color}.png")
 
             if embedding_method in ["tsne", "both"]:
-                # tSNE 图
+                # tSNE plot
                 sc.pl.tsne(
                     adata,
                     color=color,
@@ -386,11 +386,11 @@ def save_results(adata, marker_df, outdir, refgenome=None):
 
     os.makedirs(outdir, exist_ok=True)
 
-    # 保存 h5ad
+    # Save h5ad
     adata.write_h5ad(os.path.join(outdir, "clustering_result.h5ad"))
     LOGGER.info("已保存 clustering_result.h5ad")
 
-    # 保存 UMAP 坐标（格式：Barcode, UMAP_1, UMAP_2）
+    # Save UMAP coordinates (format: Barcode, UMAP_1, UMAP_2)
     if 'X_umap' in adata.obsm:
         umap_df = pd.DataFrame(
             adata.obsm['X_umap'],
@@ -401,22 +401,22 @@ def save_results(adata, marker_df, outdir, refgenome=None):
         umap_df.to_csv(os.path.join(outdir, "umap_coordinates.csv"))
         LOGGER.info("已保存 umap_coordinates.csv")
 
-    # 保存聚类结果（格式：Barcode, sampleid, group, batchid, clusters）
+    # Save clustering results (format: Barcode, sampleid, group, batchid, clusters)
     cluster_result_df = pd.DataFrame(index=adata.obs_names)
     cluster_result_df.index.name = 'Barcode'
 
-    # 添加可用的列
+    # Add available columns
     for col in ['sampleid', 'batchid', 'clusters']:
         if col in adata.obs.columns:
             cluster_result_df[col] = adata.obs[col]
 
-    # 如果有 group 列则添加，否则用 batchid 作为 group
+    # If a group column exists, add it; otherwise use batchid as group
     if 'group' in adata.obs.columns:
         cluster_result_df['group'] = adata.obs['group']
     elif 'batchid' in adata.obs.columns:
         cluster_result_df['group'] = adata.obs['batchid']
 
-    # 重新排列列顺序
+    # Reorder columns
     desired_order = ['sampleid', 'group', 'batchid', 'clusters']
     cols = [col for col in desired_order if col in cluster_result_df.columns]
     cluster_result_df = cluster_result_df[cols]
@@ -424,29 +424,29 @@ def save_results(adata, marker_df, outdir, refgenome=None):
     cluster_result_df.to_csv(os.path.join(outdir, "clusters_result.csv"))
     LOGGER.info("已保存 clusters_result.csv")
 
-    # 添加基因注释并保存 marker 基因
+    # Add gene annotation and save marker genes
     if refgenome and os.path.exists(os.path.join(refgenome, "gene_annotation.xls")):
         LOGGER.info(f"加载基因注释: {refgenome}/gene_annotation.xls")
         anno_df = pd.read_csv(os.path.join(refgenome, "gene_annotation.xls"), sep="\t")
         anno_df["id"] = anno_df["id"].astype(str)
 
-        # 添加注释
+        # Add annotation
         marker_df_annotated = add_gene_annotation(marker_df, anno_df)
 
-        # 保存所有 marker 基因
+        # Save all marker genes
         marker_df_annotated.to_csv(os.path.join(outdir, "marker_genes.csv"), index=False)
         LOGGER.info("已保存 marker_genes.csv (带基因注释)")
 
-        # 保存每个 cluster 的 top 10 marker 基因
+        # Save top 10 marker genes per cluster
         top_markers = marker_df_annotated.groupby("cluster").head(10)
         top_markers.to_csv(os.path.join(outdir, "top_marker_genes.csv"), index=False)
         LOGGER.info("已保存 top_marker_genes.csv (带基因注释)")
     else:
-        # 没有注释文件，保存原始数据
+        # No annotation file; save raw data
         marker_df.to_csv(os.path.join(outdir, "marker_genes.csv"), index=False)
         LOGGER.info("已保存 marker_genes.csv")
 
-        # 保存每个 cluster 的 top 10 marker 基因
+        # Save top 10 marker genes per cluster
         top_markers = marker_df.groupby("cluster").head(10)
         top_markers.to_csv(os.path.join(outdir, "top_marker_genes.csv"), index=False)
         LOGGER.info("已保存 top_marker_genes.csv")
@@ -462,31 +462,31 @@ def main():
         description="第二步：降维聚类分析（PCA / PCA+Harmony + 聚类 + UMAP/tSNE + Marker 基因）"
     )
 
-    # 输入输出
+    # Input/Output
     parser.add_argument("-i", "--input", required=True, help="输入文件路径 (QC 后的 .h5ad)")
     parser.add_argument("-o", "--outdir", required=True, help="输出目录")
 
-    # PCA 参数
+    # PCA parameters
     parser.add_argument("--n_comps", type=int, default=50, help="PCA 组件数 (default: 50)")
     parser.add_argument("--n_pcs", type=int, default=30, help="用于后续分析的 PC 数 (default: 30)")
     parser.add_argument("--max_value", type=float, default=10.0, help="scaling 最大值 (default: 10)")
 
-    # Harmony 参数
+    # Harmony parameters
     parser.add_argument("--use_harmony", action="store_true", help="是否使用 Harmony 批次校正")
     parser.add_argument("--batch_key", type=str, default="batchid", help="批次键名 (default: batchid)")
 
-    # 聚类参数
+    # Clustering parameters
     parser.add_argument("--cluster_method", type=str, default="leiden", choices=["leiden", "louvain"],
                         help="聚类方法 (default: leiden)")
     parser.add_argument("--resolution", type=float, default=0.8, help="聚类分辨率 (default: 0.8)")
     parser.add_argument("--n_neighbors", type=int, default=15, help="邻居数 (default: 15)")
 
-    # 可视化参数
+    # Visualization parameters
     parser.add_argument("--embedding", type=str, default="umap", choices=["umap", "tsne", "both"],
                         help="降维可视化方法 (default: umap)")
     parser.add_argument("--min_dist", type=float, default=0.5, help="UMAP min_dist (default: 0.5)")
 
-    # Marker 基因参数
+    # Marker gene parameters
     parser.add_argument("--marker_method", type=str, default="wilcoxon",
                         choices=["wilcoxon", "t-test", "logreg"],
                         help="Marker 基因检测方法 (default: wilcoxon)")
@@ -495,11 +495,11 @@ def main():
 
     args = parser.parse_args()
 
-    # 读取数据
+    # Read data
     LOGGER.info(f"读取数据：{args.input}")
     adata = sc.read_h5ad(args.input)
 
-    # 1. PCA 降维
+    # 1. PCA dimensionality reduction
     adata, n_pcs = run_pca(
         adata,
         n_comps=args.n_comps,
@@ -507,7 +507,7 @@ def main():
         max_value=args.max_value
     )
 
-    # 2. Harmony 批次校正（可选）
+    # 2. Harmony batch correction (optional)
     if args.use_harmony:
         adata, use_rep = run_harmony(
             adata,
@@ -518,7 +518,7 @@ def main():
         use_rep = "X_pca"
         LOGGER.info("不使用 Harmony，使用普通 PCA")
 
-    # 3. 聚类
+    # 3. Clustering
     adata = run_clustering(
         adata,
         n_pcs=args.n_pcs,
@@ -528,7 +528,7 @@ def main():
         use_rep=use_rep
     )
 
-    # 4. 降维可视化
+    # 4. Dimensionality reduction visualization
     adata = run_embedding(
         adata,
         n_pcs=args.n_pcs,
@@ -537,7 +537,7 @@ def main():
         embedding_method=args.embedding
     )
 
-    # 5. 绘制可视化图
+    # 5. Plot visualizations
     color_by = ["clusters"]
     if "sampleid" in adata.obs.columns:
         color_by.append("sampleid")
@@ -551,14 +551,14 @@ def main():
         embedding_method=args.embedding
     )
 
-    # 6. 查找 marker 基因
+    # 6. Find marker genes
     marker_df = find_marker_genes(
         adata,
         method=args.marker_method,
         n_genes=args.n_genes
     )
 
-    # 7. 保存结果
+    # 7. Save results
     save_results(adata, marker_df, args.outdir, refgenome=args.refgenome)
 
     LOGGER.info("分析完成！")

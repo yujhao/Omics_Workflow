@@ -1,25 +1,25 @@
 #!/usr/bin/env Rscript
 # -*- coding: utf-8 -*-
 # ==============================================================================
-# 相关性分析脚本
-# 计算聚类间基因表达的相关性矩阵并生成热图
+# Correlation analysis script
+# Compute the correlation matrix of inter-cluster gene expression and generate a heatmap
 # ==============================================================================
 
-# ========================== 配置参数 ==========================
+# ========================== Configuration parameters ==========================
 
 OUTPUT_DIR <- "3.Correlation"
 GROUPBY <- "clusters"
 
-# ========================== 初始化 ==========================
+# ========================== Initialization ==========================
 
 dir.create(OUTPUT_DIR, showWarnings = FALSE)
 
-# ========================== 数据计算 ==========================
+# ========================== Data computation ==========================
 
-# 计算平均表达量
+# Compute average expression
 groupby_data <- AverageExpression(scRNA_mnn, group.by = GROUPBY)[["RNA"]]
 
-# 保存标准化数据
+# Save normalized data
 data <- tibble::rownames_to_column(as.data.frame(groupby_data), var = "GeneID")
 write.table(
     data,
@@ -27,26 +27,26 @@ write.table(
     quote = FALSE, row.names = FALSE, sep = "\t"
 )
 
-# ========================== 相关性计算 ==========================
+# ========================== Correlation computation ==========================
 
-# 添加聚类前缀
+# Add cluster prefix
 colnames(groupby_data) <- gsub('^', paste0("clusters", "_"), colnames(groupby_data))
 
-# 计算 Pearson 相关系数矩阵
+# Compute Pearson correlation coefficient matrix
 matrix <- cor(groupby_data, method = "pearson")
 
-# ========================== 可视化 ==========================
+# ========================== Visualization ==========================
 
-# 动态计算图片尺寸
+# Dynamically compute figure dimensions
 wid <- 5 + 1.5 * log2(length(colnames(data)))
 hig <- 5 + 1.5 * log2(length(colnames(data)))
 
-# 动态计算字体大小
+# Dynamically compute font size
 fontsize_number <- 10.0 + 0.0001 * log2(length(colnames(data)))
 fontsize_row <- 10.0 + 0.0001 * log2(length(colnames(data)))
 fontsize_col <- 10.0 + 0.0001 * log2(length(colnames(data)))
 
-# 绘制相关性热图
+# Plot correlation heatmap
 coefficient <- pheatmap::pheatmap(
     matrix,
     display_numbers = FALSE,
@@ -60,6 +60,6 @@ coefficient <- pheatmap::pheatmap(
     angle_col = 45
 )
 
-# 保存图片
+# Save figures
 ggsave(file.path(OUTPUT_DIR, "coefficient_heatmap.pdf"), coefficient, width = 8, height = 8)
 ggsave(file.path(OUTPUT_DIR, "coefficient_heatmap.png"), coefficient, width = 8, height = 8)

@@ -1,20 +1,20 @@
-# 加载必要的包
+# Load required packages
 library(Seurat)
 library(ggplot2)
 library(patchwork)
 
-#' 绘制两个基因（或元数据列）的空间共定位混合图（Feature Blend）
+#' Plot a spatial colocalization blend figure (Feature Blend) of two genes (or metadata columns)
 #'
-#' @param object Seurat 对象（需包含空间图像）
-#' @param features 长度为2的字符向量，基因名或 metadata 列名
-#' @param cols 颜色向量，长度3（背景、基因1、基因2），默认 c("lightgrey","red","darkblue")
-#' @param blend.threshold 混合阈值，0~1，默认 0.2
-#' @param image.alpha 图像透明度，默认 1
-#' @param pt.size 点大小（用于混合图及空间图），默认 1.2
-#' @param crop 是否裁剪图像，默认 TRUE
-#' @param output_dir 输出目录（可选，若不提供则直接打印组合图）
+#' @param object Seurat object (must contain spatial image)
+#' @param features character vector of length 2: gene names or metadata column names
+#' @param cols color vector of length 3 (background, gene1, gene2), default c("lightgrey","red","darkblue")
+#' @param blend.threshold blend threshold, 0~1, default 0.2
+#' @param image.alpha image transparency, default 1
+#' @param pt.size point size (for blend and spatial plots), default 1.2
+#' @param crop whether to crop the image, default TRUE
+#' @param output_dir output directory (optional; if not provided, print the combined plot directly)
 #'
-#' @return 返回一个 patchwork 组合图对象，并可保存为 PDF/PNG
+#' @return returns a patchwork combined plot object, and can be saved as PDF/PNG
 #' @export
 #'
 feature_blend_func <- function(object,
@@ -26,17 +26,17 @@ feature_blend_func <- function(object,
                                crop = TRUE,
                                output_dir = NULL) {
   
-  # 1. 检查输入
+  # 1. Check input
   stopifnot(length(features) == 2)
   
-  # 2. 匹配特征（基因或 metadata）
+  # 2. Match features (genes or metadata)
   genes <- Seurat::CaseMatch(features, rownames(object))
   if (length(genes) == 0) {
     genes <- Seurat::CaseMatch(features, colnames(object[[]]))
   }
   if (length(genes) != 2) stop("Could not find both features in object.")
   
-  # 3. 生成普通 FeaturePlot (blend = TRUE) 用于展示混合散点图
+  # 3. Generate a standard FeaturePlot (blend = TRUE) to display the blended scatter plot
   p_blend <- Seurat::FeaturePlot(object,
                                  features = genes,
                                  blend = TRUE,
@@ -45,17 +45,17 @@ feature_blend_func <- function(object,
                                  pt.size = pt.size,
                                  combine = TRUE)
   
-  # 4. 生成三个空间子图（分别显示基因1、基因2、混合）
-  # 先获取 blend = FALSE 的三个单独图层（用于提取颜色映射）
+  # 4. Generate three spatial subplots (showing gene1, gene2, and blend separately)
+  # First obtain the three separate layers with blend = FALSE (to extract the color mapping)
   p_list <- Seurat::FeaturePlot(object,
                                 features = genes,
                                 blend = TRUE,
                                 cols = cols,
                                 blend.threshold = blend.threshold,
                                 pt.size = pt.size,
-                                combine = FALSE)  # 返回列表，含4个元素：基因1、基因2、混合、图例
+                                combine = FALSE)  # returns a list with 4 elements: gene1, gene2, blend, legend
   
-  # 提取每个子图的颜色映射（确保 SpatialDimPlot 使用相同颜色）
+  # Extract the color mapping of each subplot (ensure SpatialDimPlot uses the same colors)
   get_cols <- function(plot_obj, group) {
     g <- ggplot_build(plot_obj)
     df <- unique(plot_obj$data[, c(group, "colour")])
@@ -64,21 +64,21 @@ feature_blend_func <- function(object,
     return(cols)
   }
   
-  # 基因1的颜色
+  # color of gene1
   col1 <- get_cols(p_list[[1]], genes[1])
-  # 基因2的颜色
+  # color of gene2
   col2 <- get_cols(p_list[[2]], genes[2])
-  # 混合通道的颜色（组名为 "gene1_gene2"）
+  # color of the blend channel (group name is "gene1_gene2")
   blend_group <- paste(genes[1], genes[2], sep = "_")
   col_blend <- get_cols(p_list[[3]], blend_group)
   
-  # 5. 将基因表达量（或 metadata）作为分组变量添加到 meta.data，以便 SpatialDimPlot 使用
+  # 5. Add gene expression (or metadata) as grouping variables to meta.data for use by SpatialDimPlot
   object <- AddMetaData(object,
                         metadata = cbind(p_list[[1]]$data[, genes[1], drop = FALSE],
                                          p_list[[2]]$data[, genes[2], drop = FALSE],
                                          p_list[[3]]$data[, blend_group, drop = FALSE]))
   
-  # 6. 分别绘制三个空间图（无图例）
+  # 6. Plot the three spatial plots separately (no legend)
   p_sp1 <- SpatialDimPlot(object,
                           group.by = genes[1],
                           cols = col1,
@@ -109,12 +109,12 @@ feature_blend_func <- function(object,
     theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 16)) &
     NoLegend()
   
-  # 7. 合并：第一行是普通混合散点图，第二行是三个空间图
+  # 7. Combine: first row is the standard blend scatter plot, second row is the three spatial plots
   p_top <- p_blend
   p_bottom <- wrap_plots(p_sp1, p_sp2, p_sp3, p_list[[4]], nrow = 1, widths = c(1,1,1,0.9))
   p_combined <- wrap_plots(p_top, p_bottom, nrow = 2)
   
-  # 8. 保存或返回
+  # 8. Save or return
   if (!is.null(output_dir)) {
     ggsave(filename = file.path(output_dir, paste0("FeatureBlend_", genes[1], "_", genes[2], ".png")),
            plot = p_combined, width = 16, height = 9, dpi = 300)

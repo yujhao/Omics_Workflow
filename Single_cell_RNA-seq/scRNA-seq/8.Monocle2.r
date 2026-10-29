@@ -1,13 +1,13 @@
 #!/usr/bin/env Rscript
 # -*- coding: utf-8 -*-
 # ==============================================================================
-# Monocle2 拟时间分析脚本
-# 进行单细胞轨迹推断和拟时间分析
+# Monocle2 pseudotime analysis script
+# Perform single-cell trajectory inference and pseudotime analysis
 # ==============================================================================
 
 library(monocle)
 
-# ========================== 配置参数 ==========================
+# ========================== Configuration parameters ==========================
 
 OUTPUT_DIR <- "8.Monocle2"
 MIN_EXPR <- 1
@@ -17,47 +17,47 @@ NUM_CLUSTERS <- 4
 BRANCH_POINT <- 2
 CORES <- 4
 
-# ========================== 初始化 ==========================
+# ========================== Initialization ==========================
 
 dir.create(OUTPUT_DIR, showWarnings = FALSE)
 
-# ========================== CDS 对象创建 ==========================
+# ========================== CDS object creation ==========================
 
-# 转换为 CellDataSet
+# Convert to CellDataSet
 cds <- as.CellDataSet(scRNA_mnn)
 cds <- estimateSizeFactors(cds)
 cds <- estimateDispersions(cds)
 cds <- detectGenes(cds, min_expr = MIN_EXPR)
 
-# 筛选表达基因
+# Filter expressed genes
 expressed_genes <- row.names(subset(fData(cds), num_cells_expressed > MIN_CELLS_EXPRESSED))
 
-# ========================== 差异表达分析 ==========================
+# ========================== Differential expression analysis ==========================
 
-# 检测聚类间差异基因
+# Detect differential genes between clusters
 clustering_DEGs <- differentialGeneTest(
     cds[expressed_genes, ],
     fullModelFormulaStr = "~clusters",
     cores = CORES
 )
 
-# 更新 qval
+# Update qval
 featureData(cds)@data[rownames(clustering_DEGs), "qval"] <- clustering_DEGs$qval
 
-# 选择排序基因
+# Select ordering genes
 ordering_genes <- row.names(subset(clustering_DEGs, qval < QVAL_CUTOFF))
 
-# ========================== 轨迹构建 ==========================
+# ========================== Trajectory construction ==========================
 
-# 设置排序过滤器
+# Set ordering filter
 gbm_cds <- setOrderingFilter(cds, ordering_genes = ordering_genes)
 
-# 保存排序基因图
+# Save ordering gene plot
 p <- plot_ordering_genes(gbm_cds)
 ggsave(file.path(OUTPUT_DIR, "ordering_genes.pdf"), p, width = 8, height = 4)
 ggsave(file.path(OUTPUT_DIR, "ordering_genes.png"), p, width = 8, height = 4)
 
-# 降维和排序
+# Dimensionality reduction and ordering
 gbm_cds <- reduceDimension(
     gbm_cds,
     max_components = 2,
@@ -67,9 +67,9 @@ gbm_cds <- reduceDimension(
 )
 gbm_cds <- orderCells(gbm_cds, reverse = FALSE)
 
-# ========================== 轨迹可视化 ==========================
+# ========================== Trajectory visualization ==========================
 
-# State 着色
+# Color by State
 p <- plot_cell_trajectory(
     gbm_cds,
     color_by = "State",
@@ -79,7 +79,7 @@ p <- plot_cell_trajectory(
 ggsave(file.path(OUTPUT_DIR, "cell_trajectory_state.pdf"), p, width = 8, height = 4)
 ggsave(file.path(OUTPUT_DIR, "cell_trajectory_state.png"), p, width = 8, height = 4)
 
-# clusters 着色
+# Color by clusters
 p <- plot_cell_trajectory(
     gbm_cds,
     color_by = "clusters",
@@ -89,7 +89,7 @@ p <- plot_cell_trajectory(
 ggsave(file.path(OUTPUT_DIR, "cell_trajectory_clusters.pdf"), p, width = 8, height = 4)
 ggsave(file.path(OUTPUT_DIR, "cell_trajectory_clusters.png"), p, width = 8, height = 4)
 
-# clusters 分面
+# Facet by clusters
 p <- plot_cell_trajectory(
     gbm_cds,
     color_by = "clusters",
@@ -99,7 +99,7 @@ p <- plot_cell_trajectory(
 ggsave(file.path(OUTPUT_DIR, "cell_trajectory_facet.pdf"), p, width = 8, height = 4)
 ggsave(file.path(OUTPUT_DIR, "cell_trajectory_facet.png"), p, width = 8, height = 4)
 
-# Pseudotime 着色
+# Color by Pseudotime
 p <- plot_cell_trajectory(
     gbm_cds,
     color_by = "Pseudotime",
@@ -108,16 +108,16 @@ p <- plot_cell_trajectory(
 ggsave(file.path(OUTPUT_DIR, "cell_trajectory_pseudotime.pdf"), p, width = 8, height = 4)
 ggsave(file.path(OUTPUT_DIR, "cell_trajectory_pseudotime.png"), p, width = 8, height = 4)
 
-# ========================== 热图分析 ==========================
+# ========================== Heatmap analysis ==========================
 
-# 准备基因数据
+# Prepare gene data
 genes <- as.factor(subset(gbm_cds@featureData@data, use_for_ordering == TRUE)$gene_short_name)
 to_be_tested <- row.names(subset(fData(gbm_cds), gene_short_name %in% levels(genes)))
 gbm_cds <- gbm_cds[to_be_tested, ]
 varMetadata(gbm_cds)[, 1] <- rownames(varMetadata(gbm_cds))
 gbm_cds@featureData@varMetadata[, 1] <- rownames(gbm_cds@featureData@varMetadata)
 
-# 绘制拟时间热图
+# Plot pseudotime heatmap
 p <- plot_pseudotime_heatmap(
     gbm_cds,
     cores = 1,
@@ -129,20 +129,20 @@ p <- plot_pseudotime_heatmap(
 ggsave(file.path(OUTPUT_DIR, "pseudotime_heatmap.pdf"), p$ph_res, width = 8, height = 4)
 ggsave(file.path(OUTPUT_DIR, "pseudotime_heatmap.png"), p$ph_res, width = 8, height = 4)
 
-# ========================== 分支点分析 ==========================
+# ========================== Branch point analysis ==========================
 
-# 基因模块聚类
+# Gene module clustering
 gene_clusters <- cutree(p$tree_row, k = NUM_CLUSTERS)
 gene_clustering <- data.frame(gene_clusters)
 gene_clustering[, 1] <- as.character(gene_clustering[, 1])
 colnames(gene_clustering) <- "gene_module"
 
-# 分支表达分析
+# Branch expression analysis
 BEAM_res <- BEAM(gbm_cds, branch_point = BRANCH_POINT, cores = 1)
 BEAM_res <- BEAM_res[order(BEAM_res$qval), ]
 BEAM_res <- BEAM_res[, c("gene_short_name", "pval", "qval")]
 
-# 分支热图
+# Branch heatmap
 p <- plot_genes_branched_heatmap(
     gbm_cds[row.names(subset(BEAM_res, qval < 1e-4)), ],
     branch_point = BRANCH_POINT,
@@ -161,13 +161,13 @@ ggsave(
     plot = p$ph_res, height = 7, width = 7, dpi = 1000, bg = "white"
 )
 
-# ========================== 指定基因可视化 ==========================
+# ========================== Specified gene visualization ==========================
 
-# 选择感兴趣的基因
+# Select genes of interest
 genes_of_interest <- c("ISG15", "PARK7", "GLUL")
 to_be_tested_sub <- row.names(subset(fData(gbm_cds), gene_short_name %in% genes_of_interest))
 
-# 基因抖动图
+# Gene jitter plot
 p <- plot_genes_jitter(
     gbm_cds[to_be_tested_sub, ],
     grouping = "State",
@@ -178,7 +178,7 @@ p <- plot_genes_jitter(
 ggsave(file.path(OUTPUT_DIR, "genes_jitter.pdf"), p, width = 8, height = 4)
 ggsave(file.path(OUTPUT_DIR, "genes_jitter.png"), p, width = 8, height = 4)
 
-# 基因在拟时间上的表达
+# Gene expression along pseudotime
 p <- plot_genes_in_pseudotime(
     gbm_cds[to_be_tested_sub, ],
     color_by = "clusters",
@@ -188,7 +188,7 @@ p <- plot_genes_in_pseudotime(
 ggsave(file.path(OUTPUT_DIR, "genes_in_pseudotime.pdf"), p, width = 8, height = 4)
 ggsave(file.path(OUTPUT_DIR, "genes_in_pseudotime.png"), p, width = 8, height = 4)
 
-# 分支拟时间
+# Branched pseudotime
 new_cds <- buildBranchCellDataSet(
     gbm_cds[to_be_tested_sub, ],
     branch_point = BRANCH_POINT,
@@ -213,7 +213,7 @@ p <- plot_genes_branched_pseudotime(
 ggsave(file.path(OUTPUT_DIR, "genes_branched_pseudotime.pdf"), p, width = 8, height = 4)
 ggsave(file.path(OUTPUT_DIR, "genes_branched_pseudotime.png"), p, width = 8, height = 4)
 
-# 单基因表达梯度
+# Single-gene expression gradient
 p <- plot_cell_trajectory(
     gbm_cds,
     markers = "GLUL",

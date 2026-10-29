@@ -12,7 +12,7 @@ import cell2location
 rcParams["pdf.fonttype"] = 42
 
 # =========================
-# 1. 路径和常用参数
+# 1. Paths and common parameters
 # =========================
 
 sc_file = "./sc.h5ad"
@@ -28,14 +28,14 @@ detection_alpha = 20
 os.makedirs(outdir, exist_ok=True)
 
 # =========================
-# 2. 读数据
+# 2. Read data
 # =========================
 
 adata_ref = sc.read_h5ad(sc_file)
 adata_vis = sc.read_h5ad(st_file)
 
 # =========================
-# 3. 去掉线粒体基因
+# 3. Remove mitochondrial genes
 # =========================
 
 adata_ref.obsm["mt"] = adata_ref[:, adata_ref.var["mt"].values].X.toarray()
@@ -45,7 +45,7 @@ adata_vis.obsm["mt"] = adata_vis[:, adata_vis.var["mt"].values].X.toarray()
 adata_vis = adata_vis[:, ~adata_vis.var["mt"].values].copy()
 
 # =========================
-# 4. 单细胞参考过滤基因
+# 4. Filter genes for single-cell reference
 # =========================
 
 from cell2location.utils.filtering import filter_genes
@@ -60,7 +60,7 @@ selected = filter_genes(
 adata_ref = adata_ref[:, selected].copy()
 
 # =========================
-# 5. 训练单细胞 reference model
+# 5. Train single-cell reference model
 # =========================
 
 from cell2location.models import RegressionModel
@@ -98,7 +98,7 @@ mod.save(os.path.join(outdir, "reference_model"), overwrite=True)
 adata_ref.write(os.path.join(outdir, "sc_reference.h5ad"))
 
 # =========================
-# 6. 提取 cell type signatures
+# 6. Extract cell type signatures
 # =========================
 
 if "means_per_cluster_mu_fg" in adata_ref.varm.keys():
@@ -114,7 +114,7 @@ inf_aver.columns = adata_ref.uns["mod"]["factor_names"]
 inf_aver.to_csv(os.path.join(outdir, "cell_type_signatures.csv"))
 
 # =========================
-# 7. 共同基因
+# 7. Common genes
 # =========================
 
 intersect = np.intersect1d(adata_vis.var_names, inf_aver.index)
@@ -122,7 +122,7 @@ adata_vis = adata_vis[:, intersect].copy()
 inf_aver = inf_aver.loc[intersect, :].copy()
 
 # =========================
-# 8. 空间映射
+# 8. Spatial mapping
 # =========================
 
 cell2location.models.Cell2location.setup_anndata(
@@ -168,7 +168,7 @@ plt.savefig(os.path.join(outdir, "04.mapping_QC.png"))
 plt.close()
 
 # =========================
-# 9. 导出 abundance
+# 9. Export abundance
 # =========================
 
 abundance = adata_vis.obsm["q05_cell_abundance_w_sf"].copy()
@@ -178,7 +178,7 @@ abundance.to_csv(os.path.join(outdir, f"{sampleid}.q05_cell_abundance.csv"))
 adata_vis.obs[adata_vis.uns["mod"]["factor_names"]] = abundance
 
 # =========================
-# 10. 按样本取一个 slide 出图
+# 10. Take one slide per sample for plotting
 # =========================
 
 from cell2location.utils import select_slide
@@ -202,7 +202,7 @@ plt.savefig(os.path.join(outdir, "05.spatial_celltype.pdf"))
 plt.close()
 
 # =========================
-# 11. 多细胞类型合图
+# 11. Combine multiple cell types into one figure
 # =========================
 
 from cell2location.plt import plot_spatial

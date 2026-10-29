@@ -1,12 +1,12 @@
 #!/usr/bin/env Rscript
 # ============================================================================
-# GSEA (Gene Set Enrichment Analysis) 分析脚本
-# 功能: 基于差异表达分析进行 GSEA 富集分析
-# 输入: Seurat 对象 + 基因集 GMT 文件
-# 输出: GSEA 富集结果、可视化图表
+# GSEA (Gene Set Enrichment Analysis) analysis script
+# Function: Perform GSEA enrichment analysis based on differential expression analysis
+# Input: Seurat object + gene set GMT file
+# Output: GSEA enrichment results, visualization plots
 # ============================================================================
 
-# ========================== 加载包 ==========================
+# ========================== Load packages ==========================
 
 suppressPackageStartupMessages({
     library(Seurat)
@@ -19,13 +19,13 @@ suppressPackageStartupMessages({
     library(RColorBrewer)
 })
 
-# ========================== 配置参数 ==========================
+# ========================== Configuration parameters ==========================
 
 OUTPUT_DIR <- "15.GSEA"
 DATA_FILE <- "data_ob_v3.rds"
 GMT_FILE <- "utils/reference/refdata-gex-GRCm39-2024-A/gmt/mouse_2024_kegg.gmt"
 
-# 分析参数
+# Analysis parameters
 IDENT_COLUMN <- "clusters"
 GROUP1 <- "1"
 GROUP2 <- "2"
@@ -34,35 +34,35 @@ LOGFC_CUTOFF <- 0.5
 MIN_GSSIZE <- 1
 PVALUE_CUTOFF <- 0.5
 
-# 可视化参数
+# Visualization parameters
 GSEA_TERM <- "Influenza A(mmu05164)"
 PLOT_WIDTH <- 10
 PLOT_HEIGHT <- 8
 PLOT_DPI <- 300
 
-# ========================== 初始化 ==========================
+# ========================== Initialization ==========================
 
 dir.create(OUTPUT_DIR, showWarnings = FALSE)
 
-# ========================== 数据加载 ==========================
+# ========================== Data loading ==========================
 
-# 读取 Seurat 对象
+# Read Seurat object
 pbmc <- readRDS(DATA_FILE)
 Idents(pbmc) <- IDENT_COLUMN
 
-# 读取基因集文件
+# Read gene set file
 gmt <- read.gmt(GMT_FILE)
 gmt$term <- gsub("KEGG_", "", gmt$term)
 
-# ========================== 细胞亚群提取 ==========================
+# ========================== Cell subpopulation extraction ==========================
 
 scedata <- pbmc
 cells_sub <- subset(scedata@meta.data, clusters %in% c(GROUP1, GROUP2))
 scRNA_sub <- subset(scedata, cells = row.names(cells_sub))
 
-# ========================== 差异表达分析 ==========================
+# ========================== Differential expression analysis ==========================
 
-# 组间对比计算各基因 logFC
+# Compute per-gene logFC between groups
 sub.markers <- FindMarkers(
     scRNA_sub,
     group.by = IDENT_COLUMN,
@@ -70,17 +70,17 @@ sub.markers <- FindMarkers(
     ident.2 = GROUP2
 )
 
-# 筛选显著差异基因
+# Filter significantly differential genes
 deg <- subset(sub.markers, p_val_adj < PVAL_CUTOFF & avg_log2FC > LOGFC_CUTOFF)
 
-# ========================== GSEA 富集分析 ==========================
+# ========================== GSEA enrichment analysis ==========================
 
-# 提取 log2FC 值并排序
+# Extract log2FC values and rank them
 genelist <- deg$avg_log2FC
 names(genelist) <- rownames(deg)
 genelist <- sort(genelist, decreasing = TRUE)
 
-# 运行 GSEA
+# Run GSEA
 gsea <- GSEA(
     genelist,
     TERM2GENE = gmt,
@@ -88,9 +88,9 @@ gsea <- GSEA(
     pvalueCutoff = PVALUE_CUTOFF
 )
 
-# ========================== 可视化 ==========================
+# ========================== Visualization ==========================
 
-# 绘制 GSEA 图
+# Plot GSEA figure
 p <- gseaplot2(
     gsea,
     geneSetID = GSEA_TERM,
@@ -101,7 +101,7 @@ p <- gseaplot2(
     title = FALSE
 )
 
-# 保存图片
+# Save plot
 ggsave(
     file.path(OUTPUT_DIR, "GSEA.pdf"),
     p,

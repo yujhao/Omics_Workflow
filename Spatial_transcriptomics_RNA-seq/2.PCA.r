@@ -1,4 +1,4 @@
-#2 标准化与降维聚类
+#2 Normalization, dimensionality reduction and clustering
 dir.create("2.Clustering",recursive = T)
 data_ob = Seurat::SCTransform(
   data_ob,

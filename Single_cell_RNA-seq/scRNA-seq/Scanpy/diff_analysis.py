@@ -15,7 +15,7 @@ import argparse
 import logging
 from typing import Optional, List, Union
 
-# 配置日志
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -41,7 +41,7 @@ def load_gene_annotation(annotation_file):
 
     anno_df = pd.read_csv(annotation_file, sep="\t")
 
-    # 确保 id 列为字符串
+    # Ensure the id column is a string
     anno_df["id"] = anno_df["id"].astype(str)
 
     LOGGER.info(f"加载了 {len(anno_df)} 个基因的注释信息")
@@ -67,7 +67,7 @@ def add_gene_annotation(df, anno_df, gene_col="gene"):
     DataFrame
         添加注释后的差异基因表
     """
-    # 合并注释
+    # Merge annotations
     df_merged = df.merge(
         anno_df,
         left_on=gene_col,
@@ -75,13 +75,13 @@ def add_gene_annotation(df, anno_df, gene_col="gene"):
         how="left"
     )
 
-    # 删除重复的 id 列（来自 anno_df 的 id）
+    # Drop the duplicate id column (the id from anno_df)
     if "id_x" in df_merged.columns:
         df_merged = df_merged.drop(columns=["id_x"])
     if "id_y" in df_merged.columns:
         df_merged = df_merged.rename(columns={"id_y": "id"})
 
-    # 填充缺失的注释为 '--'
+    # Fill missing annotations with '--'
     df_merged = df_merged.fillna('--')
 
     return df_merged
@@ -126,17 +126,17 @@ def run_diff_analysis(
     """
     LOGGER.info(f"开始差异分析，方法={method}...")
 
-    # 如果有 raw 数据，使用 raw
+    # If raw data exists, use raw
     if use_raw and adata.raw is not None:
         adata_for_test = adata.raw.to_adata()
     else:
         adata_for_test = adata.copy()
 
-    # 标准化
+    # Normalize
     sc.pp.normalize_total(adata_for_test, target_sum=10000)
     sc.pp.log1p(adata_for_test)
 
-    # 确定比较的组
+    # Determine the groups to compare
     if group1 is None:
         groups = None
         reference = "rest"
@@ -153,7 +153,7 @@ def run_diff_analysis(
             if isinstance(group2, str):
                 group2 = [group2]
 
-            # 创建临时分组
+            # Create a temporary comparison group
             adata_for_test.obs["_comparison_group"] = "rest"
             for g in group1:
                 adata_for_test.obs.loc[
@@ -172,7 +172,7 @@ def run_diff_analysis(
 
             LOGGER.info(f"比较 {group1} vs {group2}，groupby={groupby}")
 
-    # 运行差异分析
+    # Run differential analysis
     sc.tl.rank_genes_groups(
         adata_for_test,
         groupby=groupby,
@@ -185,15 +185,15 @@ def run_diff_analysis(
         pts=True
     )
 
-    # 使用 scanpy 的函数提取结果
+    # Use scanpy's function to extract results
     all_results = []
     rank_result = adata_for_test.uns["rank_genes_groups"]
 
     for cluster in rank_result["names"].dtype.names:
-        # 使用 scanpy 的函数提取每个 cluster 的结果
+        # Use scanpy's function to extract results for each cluster
         de_df = sc.get.rank_genes_groups_df(adata_for_test, group=cluster)
 
-        # 如果是成对比较，添加参考组表达百分比
+        # If pairwise comparison, add reference group expression percentage
         if "pts" in rank_result and rank_result["pts"].shape[1] == 2:
             pts_df = pd.DataFrame({
                 "names": rank_result["pts"].index,
@@ -201,15 +201,15 @@ def run_diff_analysis(
             })
             de_df = de_df.merge(pts_df, on="names", how="left")
 
-        # 添加 cluster 信息
+        # Add cluster info
         de_df["cluster"] = cluster
 
         all_results.append(de_df)
 
-    # 合并所有结果
+    # Combine all results
     df_all = pd.concat(all_results, ignore_index=True)
 
-    # 重命名列
+    # Rename columns
     df_all = df_all.rename(columns={
         "names": "gene",
         "logfoldchanges": "log2FoldChange",
@@ -219,10 +219,10 @@ def run_diff_analysis(
         "pct_nz_reference": "pct.2"
     })
 
-    # 计算 FoldChange（保留符号：上调为正，下调为负）
+    # Compute FoldChange (preserve sign: up-regulated positive, down-regulated negative)
     df_all["FoldChange"] = np.sign(df_all["log2FoldChange"]) * (2 ** df_all["log2FoldChange"].abs())
 
-    # 添加 id 列（与 gene 相同）
+    # Add id column (same as gene)
     df_all["id"] = df_all["gene"]
 
     LOGGER.info(f"差异分析完成，共 {len(df_all)} 个基因")
@@ -252,7 +252,7 @@ def filter_and_sort_results(
     tuple
         (显著差异基因表, 上调 top20, 下调 top20, 统计信息)
     """
-    # 筛选显著差异基因（用 log2FoldChange 的绝对值与 log2(fc_cutoff) 比较）
+    # Filter significantly differentially expressed genes (compare absolute log2FoldChange with log2(fc_cutoff))
     df_sig = df[
         (df["q-value"] < qval_cutoff) &
         (df["log2FoldChange"].abs() >= np.log2(fc_cutoff))
@@ -260,7 +260,7 @@ def filter_and_sort_results(
 
     LOGGER.info(f"显著差异基因数（q<{qval_cutoff}, FC>={fc_cutoff}）: {len(df_sig)}")
 
-    # 为显著差异基因添加 Regulation 列
+    # Add a Regulation column for significant DEGs
     df_sig["Regulation"] = np.where(
         df_sig["log2FoldChange"] > 0,
         "Up",
@@ -271,22 +271,22 @@ def filter_and_sort_results(
         )
     )
 
-    # 统计上调和下调基因数
+    # Count up- and down-regulated genes
     up_count = len(df_sig[df_sig["Regulation"] == "Up"])
     down_count = len(df_sig[df_sig["Regulation"] == "Down"])
 
-    # 上调基因 top 20
+    # Top 20 up-regulated genes
     df_up = df_sig[df_sig["Regulation"] == "Up"].copy()
     df_up = df_up.sort_values("log2FoldChange", ascending=False).head(20)
 
-    # 下调基因 top 20
+    # Top 20 down-regulated genes
     df_down = df_sig[df_sig["Regulation"] == "Down"].copy()
     df_down = df_down.sort_values("log2FoldChange", ascending=True).head(20)
 
     LOGGER.info(f"上调基因 top 20: {len(df_up)}")
     LOGGER.info(f"下调基因 top 20: {len(df_down)}")
 
-    # 返回统计信息
+    # Return statistics
     stats = {
         "Up_diff": up_count,
         "Down_diff": down_count,
@@ -325,35 +325,35 @@ def save_results(df_all, df_sig, df_up, df_down, stats, outdir, group1, group2, 
     """
     os.makedirs(outdir, exist_ok=True)
 
-    # 构建文件名后缀
+    # Build filename suffix
     group1_name = "_".join(group1) if group1 else "all"
     group2_name = "_".join(group2) if group2 else "rest"
     suffix = f"group_{group1_name}-vs-{group2_name}"
 
-    # 重新排列列顺序
+    # Reorder columns
     def reorder_columns(df, include_regulation=False):
         """重新排列列顺序"""
-        # 需要删除的列
+        # Columns to drop
         drop_cols = ["cluster", "scores"]
 
-        # 基础列
+        # Base columns
         base_cols = ["gene", "log2FoldChange", "p-value", "q-value", "pct.1", "pct.2", "FoldChange"]
         if include_regulation and "Regulation" in df.columns:
             base_cols.append("Regulation")
 
-        # 注释列
+        # Annotation columns
         anno_cols = ["id", "ensembl_id", "gene_type", "gene_description", "TFs_Family", "GO_id", "GO_term", "KEGG_id", "KEGG_description"]
 
-        # 保留存在的列
+        # Keep only existing columns
         ordered_cols = [col for col in base_cols + anno_cols if col in df.columns and col not in drop_cols]
 
-        # 添加其他可能存在的列（排除需要删除的列）
+        # Add any other existing columns (excluding those to be dropped)
         other_cols = [col for col in df.columns if col not in ordered_cols and col not in drop_cols]
         ordered_cols.extend(other_cols)
 
         return df[ordered_cols]
 
-    # 保存所有差异基因
+    # Save all DEGs
     df_all_ordered = reorder_columns(df_all, include_regulation=False)
     df_all_ordered.to_csv(
         os.path.join(outdir, f"{suffix}-all_diffexp_genes_anno.xls"),
@@ -362,7 +362,7 @@ def save_results(df_all, df_sig, df_up, df_down, stats, outdir, group1, group2, 
     )
     LOGGER.info(f"已保存所有差异基因: {suffix}-all_diffexp_genes_anno.xls")
 
-    # 保存显著差异基因
+    # Save significant DEGs
     df_sig_ordered = reorder_columns(df_sig, include_regulation=True)
     df_sig_ordered.to_csv(
         os.path.join(outdir, f"{suffix}-diff-qval-{qval_cutoff}-FC-{fc_cutoff}_anno.xls"),
@@ -371,7 +371,7 @@ def save_results(df_all, df_sig, df_up, df_down, stats, outdir, group1, group2, 
     )
     LOGGER.info(f"已保存显著差异基因: {suffix}-diff-qval-{qval_cutoff}-FC-{fc_cutoff}_anno.xls")
 
-    # 保存上调基因 top 20
+    # Save top 20 up-regulated genes
     df_up_ordered = reorder_columns(df_up, include_regulation=True)
     df_up_ordered.to_csv(
         os.path.join(outdir, f"{suffix}-up_top20_anno.xls"),
@@ -380,7 +380,7 @@ def save_results(df_all, df_sig, df_up, df_down, stats, outdir, group1, group2, 
     )
     LOGGER.info(f"已保存上调基因 top 20: {suffix}-up_top20_anno.xls")
 
-    # 保存下调基因 top 20
+    # Save top 20 down-regulated genes
     df_down_ordered = reorder_columns(df_down, include_regulation=True)
     df_down_ordered.to_csv(
         os.path.join(outdir, f"{suffix}-down_top20_anno.xls"),
@@ -389,7 +389,7 @@ def save_results(df_all, df_sig, df_up, df_down, stats, outdir, group1, group2, 
     )
     LOGGER.info(f"已保存下调基因 top 20: {suffix}-down_top20_anno.xls")
 
-    # 保存统计信息
+    # Save statistics
     stats_df = pd.DataFrame([{
         "Case": group1_name,
         "Control": group2_name,
@@ -413,11 +413,11 @@ def main():
         description="第三步：差异分析（指定分组，输出所有差异基因 + 上下调各 top 20）"
     )
 
-    # 输入输出
+    # Input/Output
     parser.add_argument("-i", "--input", required=True, help="输入文件路径 (聚类后的 .h5ad)")
     parser.add_argument("-o", "--outdir", required=True, help="输出目录")
 
-    # 基因注释
+    # Gene annotation
     parser.add_argument(
         "--annotation",
         type=str,
@@ -425,7 +425,7 @@ def main():
         help="基因注释文件路径"
     )
 
-    # 分组参数
+    # Grouping parameters
     parser.add_argument(
         "--groupby",
         type=str,
@@ -447,7 +447,7 @@ def main():
         help="第二组（可以是多个 cluster，如果为 None 则与 rest 比较）"
     )
 
-    # 差异分析参数
+    # Differential analysis parameters
     parser.add_argument(
         "--method",
         type=str,
@@ -476,14 +476,14 @@ def main():
 
     args = parser.parse_args()
 
-    # 读取数据
+    # Read data
     LOGGER.info(f"读取数据：{args.input}")
     adata = sc.read_h5ad(args.input)
 
-    # 加载基因注释
+    # Load gene annotation
     anno_df = load_gene_annotation(args.annotation)
 
-    # 运行差异分析
+    # Run differential analysis
     df_all = run_diff_analysis(
         adata,
         groupby=args.groupby,
@@ -493,20 +493,20 @@ def main():
         n_genes=args.n_genes
     )
 
-    # 添加基因注释
+    # Add gene annotation
     df_all = add_gene_annotation(df_all, anno_df)
 
-    # 过滤和排序
+    # Filter and sort
     df_sig, df_up, df_down, stats = filter_and_sort_results(
         df_all,
         qval_cutoff=args.qval_cutoff,
         fc_cutoff=args.fc_cutoff
     )
 
-    # 为显著差异基因也添加注释（已经有了）
-    # 为 top 20 也添加注释（已经有了）
+    # Annotate significant DEGs too (already done)
+    # Annotate top 20 too (already done)
 
-    # 保存结果
+    # Save results
     group1_list = args.group1 if args.group1 else ["all"]
     group2_list = args.group2 if args.group2 else ["rest"]
 

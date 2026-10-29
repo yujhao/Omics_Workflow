@@ -1,11 +1,11 @@
 #!/usr/bin/env Rscript
 # -*- coding: utf-8 -*-
 # ==============================================================================
-# CellPhoneDB 细胞通讯分析脚本
-# 分析细胞间的配体-受体相互作用
+# CellPhoneDB cell-cell communication analysis script
+# Analyzes ligand-receptor interactions between cells
 # ==============================================================================
 
-# ========================== 加载包 ==========================
+# ========================== Load packages ==========================
 
 suppressPackageStartupMessages({
     library(annotables)
@@ -27,10 +27,10 @@ suppressPackageStartupMessages({
     library(plyr)
 })
 
-# 加载可视化源文件
+# Load visualization source file
 source("utils/plotting/vis_cellcomm_source.r")
 
-# ========================== 配置参数 ==========================
+# ========================== Configuration parameters ==========================
 
 OUTPUT_DIR <- "12.Cellphonedb"
 DATA_FILE <- "data_ob_v3.rds"
@@ -45,23 +45,23 @@ IS_ONLYSIG <- TRUE
 SPECIES <- "mouse"
 GROUPBY <- NULL
 
-# ========================== 初始化 ==========================
+# ========================== Initialization ==========================
 
 dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
 
-# 设置并行
+# Set up parallelization
 options(future.globals.maxSize = Inf)
 plan("multicore", workers = min(availableCores(), THREADS))
 
-# ========================== 数据加载 ==========================
+# ========================== Data loading ==========================
 
 seurat_ob <- readRDS(DATA_FILE)
 
-# 准备样本列表
+# Prepare sample list
 sp <- list()
 sp[["all"]] <- seurat_ob
 
-# 去除空因子水平
+# Remove empty factor levels
 if (class(seurat_ob@meta.data[, COLUMN_4_CELL]) == "factor") {
     sp <- lapply(sp, function(x) {
         x@meta.data[, COLUMN_4_CELL] <- droplevels(x@meta.data[, COLUMN_4_CELL])
@@ -69,13 +69,13 @@ if (class(seurat_ob@meta.data[, COLUMN_4_CELL]) == "factor") {
     })
 }
 
-# 获取表达矩阵
+# Get expression matrix
 counts <- lapply(sp, function(x) {
     counts <- GetAssayData(x, slot = "data")
     return(counts)
 })
 
-# 获取细胞注释
+# Get cell annotations
 metadata <- lapply(sp, function(x) {
     if (is.null(COLUMN_4_CELL)) {
         metadata <- Seurat::FetchData(x, vars = "ident") %>%
@@ -97,7 +97,7 @@ metadata <- lapply(sp, function(x) {
 rm(seurat_ob, sp)
 gc()
 
-# ========================== 物种转换 ==========================
+# ========================== Species conversion ==========================
 
 if (SPECIES == "mouse") {
     mouse2human <- homologene::human2mouse(annotables::grch38$symbol) %>%
@@ -126,7 +126,7 @@ if (SPECIES == "mouse") {
     })
 }
 
-# ========================== 运行 CellPhoneDB ==========================
+# ========================== Run CellPhoneDB ==========================
 
 i <- "all"
 if (is.null(GROUPBY)) {
@@ -142,7 +142,7 @@ print("以下细胞群将进入细胞通讯分析：")
 print(table(metadata[[i]]$cell_type))
 print(paste0(c("基因数是：", "细胞数是："), dim(counts[[i]])))
 
-# 输出计数矩阵
+# Output count matrix
 counts_out <- tibble::rownames_to_column(as.data.frame(counts[[i]]), var = "Gene")
 vroom::vroom_write(x = counts_out, path = file.path(tempdir, "counts.tsv"),
                    col_names = TRUE, quote = "none", delim = "\t")
@@ -152,7 +152,7 @@ write.table(
     quote = FALSE, col.names = TRUE, row.names = FALSE, sep = "\t"
 )
 
-# 构建命令
+# Build command
 outdir <- file.path(tempdir, "out")
 docellphone <- "docellphone.py"
 cmd <- glue::glue(
@@ -173,9 +173,9 @@ system(cmd)
 print(paste0("group ", i, " cellphonedb execution finished."))
 print(paste0("结果路径：", tempdir))
 
-# ========================== 结果处理 ==========================
+# ========================== Result processing ==========================
 
-# 重命名输出文件
+# Rename output files
 outdir <- file.path(tempdir, "out")
 fileNames <- list.files(path = outdir, full.names = FALSE)
 pattern <- "^statistical_analysis_(deconvoluted|means|pvalues|significant_means)_.*\\.txt$"
@@ -190,7 +190,7 @@ for (file in fileNames) {
     }
 }
 
-# 整理结果文件
+# Organize result files
 for (file in c("means.txt", "pvalues.txt", "significant_means.txt")) {
     temp_data <- read.delim(file.path(outdir, file), header = TRUE, sep = "\t")
     temp_data <- temp_data %>% dplyr::select(-c("directionality", "classification"))
@@ -202,7 +202,7 @@ for (file in c("means.txt", "pvalues.txt", "significant_means.txt")) {
     )
 }
 
-# 解析结果
+# Parse results
 cellphonedb <- ParseCpdb(outdir, pvalue = PVALUE)
 write.table(
     cellphonedb$ligrec,
@@ -211,7 +211,7 @@ write.table(
 )
 saveRDS(cellphonedb, file.path(tempdir, "cellphonedb_results.rds"))
 
-# ========================== 可视化 ==========================
+# ========================== Visualization ==========================
 
 data <- read.table("cell_comm_annotation.xls", header = TRUE, sep = "\t", stringsAsFactors = FALSE)
 
@@ -222,7 +222,7 @@ if (is.numeric(sort(unique(data$ligand_cell))) && is.numeric(sort(unique(data$re
 
 data$group <- "all"
 
-# 统计通讯对数
+# Count communication pairs
 net <- data %>%
     filter(pval < 0.05) %>%
     group_by(ligand_cell, receptor_cell) %>%
@@ -235,7 +235,7 @@ write.table(
     quote = FALSE, sep = "\t", row.names = FALSE
 )
 
-# 设置颜色
+# Set colors
 celltypes <- unique(c(as.character(data$receptor_cell), as.character(data$ligand_cell)))
 colx <- c("#7fc97f", "#beaed4", "#fdc086", "#386cb0")
 names(colx) <- celltypes

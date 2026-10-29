@@ -27,7 +27,7 @@ cellphonedb.add_argument('--microenvs', type=str,default=None)
 cellphonedb.add_argument('--genetype', type=str, default = "gene_name")
 
 args = cellphonedb.parse_args()
-################################################解析参数##########################################################
+################################################Parse parameters##########################################################
 cpdb_file_path = args.database
 meta_file_path = args.metadata
 counts_file_path = args.counts
@@ -40,7 +40,7 @@ if args.microenvs == "" :
   microenvs_file_path = None
 else :
   microenvs_file_path = args.microenvs
-###############################################主函数运行##########################################################
+###############################################Run main function##########################################################
 deconvoluted, means, pvalues, significant_means = cpdb_statistical_analysis_method.call(
     cpdb_file_path = cpdb_file_path,                 # mandatory: CellPhoneDB database zip file.
     meta_file_path = meta_file_path,                 # mandatory: tsv file defining barcodes to cell label.

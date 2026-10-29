@@ -1,4 +1,4 @@
-#4 差异基因鉴定
+#4 Differential gene identification
 dir.create("4.Diffexp")
 contrasts = unlist(strsplit(c("group:H_cj1:H_cj2"), ":", perl = T))
 numerator_subset = unlist(strsplit(contrasts[2], ",", perl = T))
@@ -47,7 +47,7 @@ write.table(res_Significant,
             sep = "\t")
 
 
-#4.1 GO富集分析
+#4.1 GO enrichment analysis
 genes_symbol <- as.character(res_Significant$gene)
 eg = bitr(genes_symbol, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Hs.eg.db")
 id = as.character(eg[,2])
@@ -64,11 +64,11 @@ res_plot <- CombinePlots(list(GO_dot,GO_bar), nrow=1)
 ggsave("4.Diffexp/GO_results_all.pdf", plot=res_plot, width = 12,height = 10)
 ggsave("4.Diffexp/GO_results_all.png", plot=res_plot, width = 12,height = 10)
 
-#4.2 KEGG富集分析
+#4.2 KEGG enrichment analysis
 # https://davidbioinformatics.nih.gov/conversion.jsp
 # http://bioinfo.org/kobas/genelist/
 
-# 4.3 火山图
+# 4.3 Volcano plot
 library(ggrepel)
 df <- read.table("group_Dilated_Zone-vs-Proximal_Zone-volcano-p-val-0.05-FC-1.2.gene_symbol_gene.xls", sep = "\t", header = TRUE)
 rownames(df) <- make.unique(as.character(df[[1]]))

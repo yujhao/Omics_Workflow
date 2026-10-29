@@ -1,27 +1,27 @@
 #!/usr/bin/env Rscript
 # -*- coding: utf-8 -*-
 # ==============================================================================
-# 差异基因鉴定与富集分析脚本
-# 进行两组间的差异表达分析及 GO/KEGG 富集分析
+# Differential gene identification and enrichment analysis script
+# Perform differential expression analysis between two groups and GO/KEGG enrichment analysis
 # ==============================================================================
 
 library(clusterProfiler)
 library(org.Hs.eg.db)
 
-# ========================== 配置参数 ==========================
+# ========================== Configuration parameters ==========================
 
 OUTPUT_DIR <- "5.Diffexp"
-CONTRASTS <- c("group", "case", "control")  # 分组变量, 实验组, 对照组
+CONTRASTS <- c("group", "case", "control")  # group variable, experimental group, control group
 PVALUE_CUTOFF <- 0.05
 LOGFC_CUTOFF <- log2(1.5)
 
-# ========================== 初始化 ==========================
+# ========================== Initialization ==========================
 
 dir.create(OUTPUT_DIR, showWarnings = FALSE)
 
-# ========================== 差异表达分析 ==========================
+# ========================== Differential expression analysis ==========================
 
-# 执行差异表达分析（Wilcoxon 检验）
+# Perform differential expression analysis (Wilcoxon test)
 Diff_exp <- FindMarkers(
     scRNA_mnn,
     logfc.threshold = 0.25,
@@ -32,7 +32,7 @@ Diff_exp <- FindMarkers(
     test.use = "wilcox"
 )
 
-# 整理结果格式
+# Format the results
 Diff_exp <- Diff_exp %>%
     tibble::rownames_to_column(var = "gene") %>%
     dplyr::rename(pvalue = p_val, padj = p_val_adj)
@@ -44,13 +44,13 @@ Diff_exp1 <- Diff_exp %>%
 
 colnames(Diff_exp1) <- c("gene", "p-value", "log2FoldChange", "pct.1", "pct.2", "q-value", "FoldChange")
 
-# 筛选显著差异基因
+# Filter significantly differentially expressed genes
 res_Significant <- dplyr::filter(Diff_exp1, `p-value` < PVALUE_CUTOFF, abs(log2FoldChange) > LOGFC_CUTOFF)
 res_Significant[which(res_Significant$log2FoldChange > 0), "Regulation"] <- "Up"
 res_Significant[which(res_Significant$log2FoldChange < 0), "Regulation"] <- "Down"
 colnames(res_Significant) <- c("gene", "p-value", "log2FoldChange", "pct.1", "pct.2", "q-value", "FoldChange", "Regulation")
 
-# ========================== 保存结果 ==========================
+# ========================== Save results ==========================
 
 write.table(
     Diff_exp1,
@@ -64,14 +64,14 @@ write.table(
     col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE
 )
 
-# ========================== GO 富集分析 ==========================
+# ========================== GO enrichment analysis ==========================
 
-# 基因符号转换为 Entrez ID
+# Convert gene symbols to Entrez IDs
 genes_symbol <- as.character(res_Significant$gene)
 eg <- bitr(genes_symbol, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = "org.Hs.eg.db")
 id <- as.character(eg[, 2])
 
-# GO 富集分析
+# GO enrichment analysis
 ego <- enrichGO(
     gene = id,
     OrgDb = org.Hs.eg.db,
@@ -82,7 +82,7 @@ ego <- enrichGO(
     readable = TRUE
 )
 
-# 绘制 GO 结果图
+# Plot GO results
 GO_dot <- dotplot(ego, split = "ONTOLOGY") + facet_grid(ONTOLOGY ~ ., scales = "free")
 GO_bar <- barplot(ego, split = "ONTOLOGY") + facet_grid(ONTOLOGY ~ ., scales = "free")
 res_plot <- CombinePlots(list(GO_dot, GO_bar), nrow = 1)
@@ -90,9 +90,9 @@ res_plot <- CombinePlots(list(GO_dot, GO_bar), nrow = 1)
 ggsave(file.path(OUTPUT_DIR, "GO_results_all.pdf"), plot = res_plot, width = 12, height = 10)
 ggsave(file.path(OUTPUT_DIR, "GO_results_all.png"), plot = res_plot, width = 12, height = 10)
 
-# ========================== KEGG 富集分析 ==========================
+# ========================== KEGG enrichment analysis ==========================
 
-# 注：如需进行 KEGG 分析，请取消以下注释
+# Note: to perform KEGG analysis, uncomment the following
 # ekegg <- enrichKEGG(
 #     gene = id,
 #     organism = "hsa",

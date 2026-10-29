@@ -1,12 +1,12 @@
 #!/bin/bash
-# 单细胞分析运行脚本
+# Single-cell analysis run script
 
 
 # ============================================
-# 第一步：QC 分析
+# Step 1: QC Analysis
 # ============================================
 
-# 方式 1: 从原始 10x 数据读取多个样本
+# Method 1: Read multiple samples from raw 10x data
 ROOT_DIR="data/"
 SAMPLES="A1 A2 P1 P2"
 OUTPUT_QC="vi/1.QC"
@@ -25,13 +25,13 @@ python qc_analysis.py \
     --maxumi 50000 \
     --mtfilter 0.2 \
     --hbfilter 0.05
-    # --skip_doublet_removal  # 添加此参数可跳过双细胞去除
+    # --skip_doublet_removal  # Add this argument to skip doublet removal
 
 
 # # ============================================
-# # 第二步：降维聚类分析
+# # Step 2: Dimensionality reduction and clustering analysis
 # # ============================================
-INPUT_CLUSTER="vi/1.QC/qc_result.h5ad"  # QC 后的数据
+INPUT_CLUSTER="vi/1.QC/qc_result.h5ad"  # Data after QC
 OUTPUT_CLUSTER="vi/2.Clustering"
 
 基本用法（默认 UMAP，PCA，resolution=0.8）
@@ -49,12 +49,12 @@ python clustering_analysis.py \
 
 
 # # ============================================
-# # 第三步：差异分析
+# # Step 3: Differential analysis
 # # ============================================
-INPUT_DIFF="vi/2.Clustering/clustering_result.h5ad"  # 聚类后的数据
+INPUT_DIFF="vi/2.Clustering/clustering_result.h5ad"  # Data after clustering
 OUTPUT_DIFF="vi/3.diff_output"
 
-# 基本用法：比较 sample A1 vs A2
+# Basic usage: compare sample A1 vs A2
 python diff_analysis.py \
     -i $INPUT_DIFF \
     -o $OUTPUT_DIFF \
@@ -64,5 +64,5 @@ python diff_analysis.py \
     --qval_cutoff 0.05 \
     --fc_cutoff 1.5
 
-# 注意，python仅仅分析，绘图还是使用R脚本绘图,h5ad转成rds，参考h5ad_rds.R
+# Note: Python only performs the analysis; plotting is still done with R scripts. Convert h5ad to rds; see h5ad_rds.R
 

@@ -18,7 +18,7 @@ suppressWarnings({
   library(tidyverse)
 })
 
-#1 10×空间转录组数据读取 
+#1 10× spatial transcriptomics data loading 
 dir.create("1.SpaceRanger_QC")
 data_ob = readRDS("data/data_ob.rds")
 data_ob = PercentageFeatureSet(data_ob, pattern = "^MT-",
