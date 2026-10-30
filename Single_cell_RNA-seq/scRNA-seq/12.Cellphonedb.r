@@ -103,7 +103,7 @@ if (SPECIES == "mouse") {
     mouse2human <- homologene::human2mouse(annotables::grch38$symbol) %>%
         dplyr::select(mouseGene, humanGene)
 
-    print("物种为小鼠，counts 基因名将替换为人的同源基因.")
+    print("Species is mouse, counts gene names will be replaced with human orthologs.")
     write.table(
         mouse2human,
         file = file.path(OUTPUT_DIR, "mouse2human.homologene.xls"),
@@ -130,17 +130,17 @@ if (SPECIES == "mouse") {
 
 i <- "all"
 if (is.null(GROUPBY)) {
-    print("开始做不分组 cellphonedb 分析.")
+    print("Running cellphonedb analysis without grouping.")
     tempdir <- OUTPUT_DIR
 } else {
-    print(paste0("开始做分组", i, "的 cellphonedb 分析."))
+    print(paste0("Running cellphonedb analysis for group ", i, "."))
     tempdir <- file.path(OUTPUT_DIR, i)
     dir.create(tempdir)
 }
 
-print("以下细胞群将进入细胞通讯分析：")
+print("The following cell groups will enter cell-cell communication analysis:")
 print(table(metadata[[i]]$cell_type))
-print(paste0(c("基因数是：", "细胞数是："), dim(counts[[i]])))
+print(paste0(c("Number of genes: ", "Number of cells: "), dim(counts[[i]])))
 
 # Output count matrix
 counts_out <- tibble::rownames_to_column(as.data.frame(counts[[i]]), var = "Gene")
@@ -171,7 +171,7 @@ cmd <- glue::glue(
 print(glue::glue("{cmd}"))
 system(cmd)
 print(paste0("group ", i, " cellphonedb execution finished."))
-print(paste0("结果路径：", tempdir))
+print(paste0("Result path: ", tempdir))
 
 # ========================== Result processing ==========================
 

@@ -57,7 +57,7 @@ if (SPECIES %in% c("human", "mouse")) {
     gene_map <- tibble::column_to_rownames(as.data.frame(gene_map), "V1")
     gene_map[, 1] <- as.character(gene_map[, 1])
 } else {
-    stop("物种不支持，请选择 'human' 或 'mouse'")
+    stop("Species not supported, please choose 'human' or 'mouse'")
 }
 
 # Build reference list
@@ -71,7 +71,7 @@ ref <- list(
 
 # Check whether gene names match
 if (length(intersect(rownames(seurat_ob), ref[[1]]$first)) == 0) {
-    stop("基因名不匹配，请检查物种设置")
+    stop("Gene names do not match, please check the species setting")
 }
 
 # Convert to SingleCellExperiment object

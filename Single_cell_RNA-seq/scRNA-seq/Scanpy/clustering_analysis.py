@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-第二步：降维聚类分析
-输入：QC 后的数据
-功能：PCA / PCA+Harmony + 聚类 + UMAP/tSNE
+Step 2: Dimensionality reduction and clustering analysis
+Input: post-QC data
+Function: PCA / PCA+Harmony + clustering + UMAP/tSNE
 """
 
 import scanpy as sc
@@ -32,24 +32,24 @@ def run_pca(
     max_value=10
 ):
     """
-    运行 PCA 降维
+    Run PCA dimensionality reduction
 
     Parameters:
     -----------
     adata : AnnData
-        输入的 AnnData 对象（已 QC）
+        Input AnnData object (already QC'd)
     n_comps : int
-        PCA 组件数
+        Number of PCA components
     n_pcs : int
-        用于后续分析的 PC 数
+        Number of PCs for downstream analysis
     max_value : float
-        scaling 的最大值
+        Maximum value for scaling
     """
-    LOGGER.info("开始 PCA 降维...")
+    LOGGER.info("Starting PCA dimensionality reduction...")
 
     # If HVG not yet selected, select them first
     if 'highly_variable' not in adata.var.columns:
-        LOGGER.info("选择高变基因...")
+        LOGGER.info("Selecting highly variable genes...")
         sc.pp.highly_variable_genes(adata, n_top_genes=2000, flavor='seurat_v3')
 
     # Use only highly variable genes
@@ -57,11 +57,11 @@ def run_pca(
 
     # Scaling
     sc.pp.scale(adata_hvg, max_value=max_value)
-    LOGGER.info(f"Scaling 完成，max_value={max_value}")
+    LOGGER.info(f"Scaling complete, max_value={max_value}")
 
     # PCA
     sc.tl.pca(adata_hvg, n_comps=n_comps)
-    LOGGER.info(f"PCA 完成，{n_comps} 个组件")
+    LOGGER.info(f"PCA complete, {n_comps} components")
 
     # Copy the PCA results back to the original adata
     # Note: varm and uns need not be copied; only the PCA coordinates in obsm are needed for downstream analysis
@@ -76,18 +76,18 @@ def run_harmony(
     n_pcs=30
 ):
     """
-    运行 Harmony 批次校正
+    Run Harmony batch correction
 
     Parameters:
     -----------
     adata : AnnData
-        输入的 AnnData 对象（已完成 PCA）
+        Input AnnData object (PCA already computed)
     batch_key : str
-        批次键名
+        Batch key name
     n_pcs : int
-        用于后续分析的 PC 数
+        Number of PCs for downstream analysis
     """
-    LOGGER.info(f"开始 Harmony 批次校正，batch_key={batch_key}...")
+    LOGGER.info(f"Starting Harmony batch correction, batch_key={batch_key}...")
 
     try:
         import harmony_pytorch as harmony
@@ -100,11 +100,11 @@ def run_harmony(
             adjusted_basis='X_pca_harmony'
         )
 
-        LOGGER.info("Harmony 批次校正完成")
+        LOGGER.info("Harmony batch correction complete")
         use_rep = 'X_pca_harmony'
 
     except ImportError:
-        LOGGER.warning("未安装 harmony_pytorch，使用普通 PCA")
+        LOGGER.warning("harmony_pytorch not installed, using plain PCA")
         use_rep = 'X_pca'
 
     return adata, use_rep
@@ -119,24 +119,24 @@ def run_clustering(
     use_rep="X_pca"
 ):
     """
-    运行聚类
+    Run clustering
 
     Parameters:
     -----------
     adata : AnnData
-        输入的 AnnData 对象
+        Input AnnData object
     n_pcs : int
-        用于聚类的 PC 数
+        Number of PCs for clustering
     n_neighbors : int
-        邻居数
+        Number of neighbors
     resolution : float
-        聚类分辨率
+        Clustering resolution
     method : str
-        聚类方法 (leiden 或 louvain)
+        Clustering method (leiden or louvain)
     use_rep : str
-        用于构建邻域图的表示
+        Representation used to build the neighbor graph
     """
-    LOGGER.info(f"开始聚类，方法={method}, resolution={resolution}...")
+    LOGGER.info(f"Starting clustering, method={method}, resolution={resolution}...")
 
     # Build neighborhood graph
     sc.pp.neighbors(
@@ -145,7 +145,7 @@ def run_clustering(
         n_pcs=n_pcs,
         use_rep=use_rep
     )
-    LOGGER.info(f"邻域图构建完成，n_neighbors={n_neighbors}, n_pcs={n_pcs}")
+    LOGGER.info(f"Neighbor graph construction complete, n_neighbors={n_neighbors}, n_pcs={n_pcs}")
 
     # Clustering
     if method == "leiden":
@@ -165,7 +165,7 @@ def run_clustering(
     adata.obs['clusters'] = pd.Categorical(adata.obs['clusters'])
 
     n_clusters = adata.obs['clusters'].nunique()
-    LOGGER.info(f"聚类完成，共 {n_clusters} 个 clusters")
+    LOGGER.info(f"Clustering complete, {n_clusters} clusters in total")
 
     return adata
 
@@ -178,30 +178,30 @@ def run_embedding(
     embedding_method="umap"
 ):
     """
-    运行降维可视化
+    Run dimensionality reduction visualization
 
     Parameters:
     -----------
     adata : AnnData
-        输入的 AnnData 对象
+        Input AnnData object
     n_pcs : int
-        用于 tSNE 的 PC 数
+        Number of PCs for tSNE
     min_dist : float
-        UMAP 的 min_dist 参数
+        min_dist parameter for UMAP
     use_rep : str
-        用于 tSNE 的表示
+        Representation used for tSNE
     embedding_method : str
-        降维方法 (umap, tsne, both)
+        Dimensionality reduction method (umap, tsne, both)
     """
-    LOGGER.info(f"开始降维可视化，方法={embedding_method}...")
+    LOGGER.info(f"Starting dimensionality reduction visualization, method={embedding_method}...")
 
     if embedding_method in ["umap", "both"]:
         sc.tl.umap(adata, min_dist=min_dist)
-        LOGGER.info(f"UMAP 完成，min_dist={min_dist}")
+        LOGGER.info(f"UMAP complete, min_dist={min_dist}")
 
     if embedding_method in ["tsne", "both"]:
         sc.tl.tsne(adata, n_pcs=n_pcs, use_rep=use_rep)
-        LOGGER.info("tSNE 完成")
+        LOGGER.info("tSNE complete")
 
     return adata
 
@@ -212,23 +212,23 @@ def find_marker_genes(
     n_genes=100
 ):
     """
-    查找每个 cluster 的 marker 基因
+    Find marker genes for each cluster
 
     Parameters:
     -----------
     adata : AnnData
-        输入的 AnnData 对象
+        Input AnnData object
     method : str
-        检测方法 (wilcoxon, t-test, logreg)
+        Test method (wilcoxon, t-test, logreg)
     n_genes : int
-        每个 cluster 返回的基因数
+        Number of genes returned per cluster
 
     Returns:
     --------
     DataFrame
-        marker 基因结果
+        Marker gene results
     """
-    LOGGER.info(f"查找 marker 基因，方法={method}...")
+    LOGGER.info(f"Finding marker genes, method={method}...")
 
     # Run differential analysis
     sc.tl.rank_genes_groups(
@@ -257,28 +257,28 @@ def find_marker_genes(
 
     marker_df = pd.concat(all_results, ignore_index=True)
 
-    LOGGER.info(f"找到 {len(marker_df)} 个 marker 基因")
+    LOGGER.info(f"Found {len(marker_df)} marker genes")
 
     return marker_df
 
 
 def add_gene_annotation(df, anno_df, gene_col="gene"):
     """
-    为基因添加注释
+    Add annotations to genes
 
     Parameters:
     -----------
     df : DataFrame
-        基因数据表
+        Gene data table
     anno_df : DataFrame
-        基因注释表
+        Gene annotation table
     gene_col : str
-        基因名列名
+        Gene name column name
 
     Returns:
     --------
     DataFrame
-        添加注释后的数据表
+        Data table with annotations added
     """
     # Merge annotations
     df_merged = df.merge(
@@ -316,20 +316,20 @@ def plot_embeddings(
     embedding_method="umap"
 ):
     """
-    绘制降维可视化图
+    Plot dimensionality reduction visualizations
 
     Parameters:
     -----------
     adata : AnnData
-        输入的 AnnData 对象
+        Input AnnData object
     output_dir : str
-        输出目录
+        Output directory
     color_by : list
-        用于着色的列名
+        Column names to color by
     embedding_method : str
-        降维方法 (umap, tsne, both)
+        Dimensionality reduction method (umap, tsne, both)
     """
-    LOGGER.info("绘制降维可视化图...")
+    LOGGER.info("Plotting dimensionality reduction visualizations...")
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -338,7 +338,7 @@ def plot_embeddings(
 
     for color in color_by:
         if color not in adata.obs.columns:
-            LOGGER.warning(f"列 {color} 不存在，跳过")
+            LOGGER.warning(f"Column {color} does not exist, skipping")
             continue
 
         try:
@@ -351,7 +351,7 @@ def plot_embeddings(
                     save=f'_umap_{color}.png',
                     show=False
                 )
-                LOGGER.info(f"已保存 UMAP 图：umap_{color}.png")
+                LOGGER.info(f"Saved UMAP plot: umap_{color}.png")
 
             if embedding_method in ["tsne", "both"]:
                 # tSNE plot
@@ -362,33 +362,33 @@ def plot_embeddings(
                     save=f'_tsne_{color}.png',
                     show=False
                 )
-                LOGGER.info(f"已保存 tSNE 图：tsne_{color}.png")
+                LOGGER.info(f"Saved tSNE plot: tsne_{color}.png")
         except Exception as e:
-            LOGGER.warning(f"绘制 {color} 时出错：{e}，跳过")
+            LOGGER.warning(f"Error plotting {color}: {e}, skipping")
 
 
 def save_results(adata, marker_df, outdir, refgenome=None):
     """
-    保存结果
+    Save results
 
     Parameters:
     -----------
     adata : AnnData
-        分析完成的 AnnData 对象
+        AnnData object after analysis
     marker_df : DataFrame
-        marker 基因结果
+        Marker gene results
     outdir : str
-        输出目录
+        Output directory
     refgenome : str
-        参考基因组目录路径（用于基因注释）
+        Reference genome directory path (for gene annotation)
     """
-    LOGGER.info(f"保存结果到 {outdir}...")
+    LOGGER.info(f"Saving results to {outdir}...")
 
     os.makedirs(outdir, exist_ok=True)
 
     # Save h5ad
     adata.write_h5ad(os.path.join(outdir, "clustering_result.h5ad"))
-    LOGGER.info("已保存 clustering_result.h5ad")
+    LOGGER.info("Saved clustering_result.h5ad")
 
     # Save UMAP coordinates (format: Barcode, UMAP_1, UMAP_2)
     if 'X_umap' in adata.obsm:
@@ -399,7 +399,7 @@ def save_results(adata, marker_df, outdir, refgenome=None):
         )
         umap_df.index.name = 'Barcode'
         umap_df.to_csv(os.path.join(outdir, "umap_coordinates.csv"))
-        LOGGER.info("已保存 umap_coordinates.csv")
+        LOGGER.info("Saved umap_coordinates.csv")
 
     # Save clustering results (format: Barcode, sampleid, group, batchid, clusters)
     cluster_result_df = pd.DataFrame(index=adata.obs_names)
@@ -422,11 +422,11 @@ def save_results(adata, marker_df, outdir, refgenome=None):
     cluster_result_df = cluster_result_df[cols]
 
     cluster_result_df.to_csv(os.path.join(outdir, "clusters_result.csv"))
-    LOGGER.info("已保存 clusters_result.csv")
+    LOGGER.info("Saved clusters_result.csv")
 
     # Add gene annotation and save marker genes
     if refgenome and os.path.exists(os.path.join(refgenome, "gene_annotation.xls")):
-        LOGGER.info(f"加载基因注释: {refgenome}/gene_annotation.xls")
+        LOGGER.info(f"Loading gene annotation: {refgenome}/gene_annotation.xls")
         anno_df = pd.read_csv(os.path.join(refgenome, "gene_annotation.xls"), sep="\t")
         anno_df["id"] = anno_df["id"].astype(str)
 
@@ -435,68 +435,68 @@ def save_results(adata, marker_df, outdir, refgenome=None):
 
         # Save all marker genes
         marker_df_annotated.to_csv(os.path.join(outdir, "marker_genes.csv"), index=False)
-        LOGGER.info("已保存 marker_genes.csv (带基因注释)")
+        LOGGER.info("Saved marker_genes.csv (with gene annotation)")
 
         # Save top 10 marker genes per cluster
         top_markers = marker_df_annotated.groupby("cluster").head(10)
         top_markers.to_csv(os.path.join(outdir, "top_marker_genes.csv"), index=False)
-        LOGGER.info("已保存 top_marker_genes.csv (带基因注释)")
+        LOGGER.info("Saved top_marker_genes.csv (with gene annotation)")
     else:
         # No annotation file; save raw data
         marker_df.to_csv(os.path.join(outdir, "marker_genes.csv"), index=False)
-        LOGGER.info("已保存 marker_genes.csv")
+        LOGGER.info("Saved marker_genes.csv")
 
         # Save top 10 marker genes per cluster
         top_markers = marker_df.groupby("cluster").head(10)
         top_markers.to_csv(os.path.join(outdir, "top_marker_genes.csv"), index=False)
-        LOGGER.info("已保存 top_marker_genes.csv")
+        LOGGER.info("Saved top_marker_genes.csv")
 
-    LOGGER.info("所有结果保存完成")
+    LOGGER.info("All results saved")
 
 
 def main():
     """
-    主函数
+    Main function
     """
     parser = argparse.ArgumentParser(
-        description="第二步：降维聚类分析（PCA / PCA+Harmony + 聚类 + UMAP/tSNE + Marker 基因）"
+        description="Step 2: Dimensionality reduction and clustering analysis (PCA / PCA+Harmony + clustering + UMAP/tSNE + marker genes)"
     )
 
     # Input/Output
-    parser.add_argument("-i", "--input", required=True, help="输入文件路径 (QC 后的 .h5ad)")
-    parser.add_argument("-o", "--outdir", required=True, help="输出目录")
+    parser.add_argument("-i", "--input", required=True, help="Input file path (post-QC .h5ad)")
+    parser.add_argument("-o", "--outdir", required=True, help="Output directory")
 
     # PCA parameters
-    parser.add_argument("--n_comps", type=int, default=50, help="PCA 组件数 (default: 50)")
-    parser.add_argument("--n_pcs", type=int, default=30, help="用于后续分析的 PC 数 (default: 30)")
-    parser.add_argument("--max_value", type=float, default=10.0, help="scaling 最大值 (default: 10)")
+    parser.add_argument("--n_comps", type=int, default=50, help="Number of PCA components (default: 50)")
+    parser.add_argument("--n_pcs", type=int, default=30, help="Number of PCs for downstream analysis (default: 30)")
+    parser.add_argument("--max_value", type=float, default=10.0, help="Maximum scaling value (default: 10)")
 
     # Harmony parameters
-    parser.add_argument("--use_harmony", action="store_true", help="是否使用 Harmony 批次校正")
-    parser.add_argument("--batch_key", type=str, default="batchid", help="批次键名 (default: batchid)")
+    parser.add_argument("--use_harmony", action="store_true", help="Whether to apply Harmony batch correction")
+    parser.add_argument("--batch_key", type=str, default="batchid", help="Batch key name (default: batchid)")
 
     # Clustering parameters
     parser.add_argument("--cluster_method", type=str, default="leiden", choices=["leiden", "louvain"],
-                        help="聚类方法 (default: leiden)")
-    parser.add_argument("--resolution", type=float, default=0.8, help="聚类分辨率 (default: 0.8)")
-    parser.add_argument("--n_neighbors", type=int, default=15, help="邻居数 (default: 15)")
+                        help="Clustering method (default: leiden)")
+    parser.add_argument("--resolution", type=float, default=0.8, help="Clustering resolution (default: 0.8)")
+    parser.add_argument("--n_neighbors", type=int, default=15, help="Number of neighbors (default: 15)")
 
     # Visualization parameters
     parser.add_argument("--embedding", type=str, default="umap", choices=["umap", "tsne", "both"],
-                        help="降维可视化方法 (default: umap)")
+                        help="Dimensionality reduction visualization method (default: umap)")
     parser.add_argument("--min_dist", type=float, default=0.5, help="UMAP min_dist (default: 0.5)")
 
     # Marker gene parameters
     parser.add_argument("--marker_method", type=str, default="wilcoxon",
                         choices=["wilcoxon", "t-test", "logreg"],
-                        help="Marker 基因检测方法 (default: wilcoxon)")
-    parser.add_argument("--n_genes", type=int, default=100, help="每个 cluster 返回的基因数 (default: 100)")
-    parser.add_argument("--refgenome", type=str, default=None, help="参考基因组目录路径（用于基因注释）")
+                        help="Marker gene test method (default: wilcoxon)")
+    parser.add_argument("--n_genes", type=int, default=100, help="Number of genes returned per cluster (default: 100)")
+    parser.add_argument("--refgenome", type=str, default=None, help="Reference genome directory path (for gene annotation)")
 
     args = parser.parse_args()
 
     # Read data
-    LOGGER.info(f"读取数据：{args.input}")
+    LOGGER.info(f"Reading data: {args.input}")
     adata = sc.read_h5ad(args.input)
 
     # 1. PCA dimensionality reduction
@@ -516,7 +516,7 @@ def main():
         )
     else:
         use_rep = "X_pca"
-        LOGGER.info("不使用 Harmony，使用普通 PCA")
+        LOGGER.info("Not using Harmony, using plain PCA")
 
     # 3. Clustering
     adata = run_clustering(
@@ -561,7 +561,7 @@ def main():
     # 7. Save results
     save_results(adata, marker_df, args.outdir, refgenome=args.refgenome)
 
-    LOGGER.info("分析完成！")
+    LOGGER.info("Analysis complete!")
 
 
 if __name__ == "__main__":

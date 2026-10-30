@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-scVelo RNA 速度分析脚本
-用于单细胞 RNA-seq 数据的速度分析和可视化
+scVelo RNA velocity analysis script
+RNA velocity analysis and visualization for single-cell RNA-seq data
 
-前置步骤：
+Prerequisite step:
     velocyto run10x Cellranger/sample/ genes.gtf
 """
 
@@ -199,9 +199,9 @@ scv.tl.rank_velocity_genes(
 df_velocity = pd.DataFrame(vlm_subset.uns['rank_velocity_genes']['names'])
 df_velocity.to_excel(OUTPUT_DIR / "rank_velocity_genes.xlsx", index=False)
 
-print(f"文件已成功保存到：{OUTPUT_DIR}")
-print(f"1. 动态基因排名：{OUTPUT_DIR / 'rank_dynamical_genes.xlsx'}")
-print(f"2. 速度基因排名：{OUTPUT_DIR / 'rank_velocity_genes.xlsx'}")
+print(f"Files successfully saved to: {OUTPUT_DIR}")
+print(f"1. Dynamical gene ranking: {OUTPUT_DIR / 'rank_dynamical_genes.xlsx'}")
+print(f"2. Velocity gene ranking: {OUTPUT_DIR / 'rank_velocity_genes.xlsx'}")
 
 # ========================== Velocity confidence analysis ==========================
 

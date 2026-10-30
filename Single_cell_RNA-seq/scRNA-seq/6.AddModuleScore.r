@@ -47,7 +47,7 @@ if (length(filtered_gene) != 0) {
         file.path(OUTPUT_DIR, "genes_not_matched.xls"),
         quote = FALSE, row.names = FALSE
     )
-    print("有部分基因未匹配到，见：genes_not_matched.xls.")
+    print("Some genes were not matched, see: genes_not_matched.xls.")
 }
 
 # Use successfully matched genes

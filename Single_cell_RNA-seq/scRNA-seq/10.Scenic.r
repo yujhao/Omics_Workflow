@@ -61,7 +61,7 @@ if (SPECIES == "human") {
     names(DBS) <- c("500bp", "10kb")
     ORG <- "mgi"
 } else {
-    stop("物种不支持，请选择 'human' 或 'mouse'")
+    stop("Species not supported, please choose 'human' or 'mouse'")
 }
 
 # ========================== Initialization ==========================

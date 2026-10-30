@@ -10,7 +10,7 @@ if(length(filtered_gene) != 0){
 filtered_gene = as.data.frame(filtered_gene)
 colnames(filtered_gene) = "Gene"
 write.table(filtered_gene,file.path(score_outdir,"genes_not_matched.xls"),quote = F,row.names=F)
-print("有部分基因未匹配到，见：genes_not_matched.xls.")
+print("Some genes were not matched, see: genes_not_matched.xls.")
 }
 formated_extra_gene = formated_extra_gene %>% 
             dplyr::filter(GENE %in% names(match_results)) %>%

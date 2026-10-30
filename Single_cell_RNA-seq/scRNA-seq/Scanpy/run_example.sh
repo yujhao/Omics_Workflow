@@ -34,7 +34,7 @@ python qc_analysis.py \
 INPUT_CLUSTER="vi/1.QC/qc_result.h5ad"  # Data after QC
 OUTPUT_CLUSTER="vi/2.Clustering"
 
-基本用法（默认 UMAP，PCA，resolution=0.8）
+# Basic usage (default UMAP, PCA, resolution=0.8)
 REFGENOME="refdata-gex-GRCm39-2024-A/"
 
 python clustering_analysis.py \

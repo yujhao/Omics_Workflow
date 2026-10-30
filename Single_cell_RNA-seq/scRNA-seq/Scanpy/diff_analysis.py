@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-第三步：差异分析
-输入：聚类后的数据
-功能：指定分组进行差异分析，输出所有差异基因 + 上下调各 top 20
+Step 3: Differential analysis
+Input: Clustered data
+Function: Run differential analysis for specified groups, output all DEGs + top 20 up- and down-regulated each
 """
 
 import scanpy as sc
@@ -25,47 +25,47 @@ LOGGER = logging.getLogger(__name__)
 
 def load_gene_annotation(annotation_file):
     """
-    加载基因注释文件
+    Load the gene annotation file
 
     Parameters:
     -----------
     annotation_file : str
-        基因注释文件路径
+        Path to the gene annotation file
 
     Returns:
     --------
     DataFrame
-        基因注释数据
+        Gene annotation data
     """
-    LOGGER.info(f"加载基因注释: {annotation_file}")
+    LOGGER.info(f"Loading gene annotation: {annotation_file}")
 
     anno_df = pd.read_csv(annotation_file, sep="\t")
 
     # Ensure the id column is a string
     anno_df["id"] = anno_df["id"].astype(str)
 
-    LOGGER.info(f"加载了 {len(anno_df)} 个基因的注释信息")
+    LOGGER.info(f"Loaded annotation for {len(anno_df)} genes")
 
     return anno_df
 
 
 def add_gene_annotation(df, anno_df, gene_col="gene"):
     """
-    为差异基因添加注释
+    Add annotations to the differentially expressed genes
 
     Parameters:
     -----------
     df : DataFrame
-        差异基因表
+        Differential gene table
     anno_df : DataFrame
-        基因注释表
+        Gene annotation table
     gene_col : str
-        基因名列名
+        Name of the gene column
 
     Returns:
     --------
     DataFrame
-        添加注释后的差异基因表
+        Differential gene table with annotations added
     """
     # Merge annotations
     df_merged = df.merge(
@@ -98,33 +98,33 @@ def run_diff_analysis(
     use_raw=True
 ):
     """
-    运行差异表达分析
+    Run differential expression analysis
 
     Parameters:
     -----------
     adata : AnnData
-        输入的 AnnData 对象
+        Input AnnData object
     groupby : str
-        分组依据
+        Grouping key
     group1 : str or list
-        第一组
+        First group
     group2 : str or list
-        第二组（如果为 None，则与 rest 比较）
+        Second group (if None, compare against rest)
     method : str
-        差异分析方法
+        Differential analysis method
     n_genes : int
-        返回的基因数（None 表示所有基因）
+        Number of genes to return (None means all genes)
     corr_method : str
-        p 值校正方法
+        p-value correction method
     use_raw : bool
-        是否使用 raw 数据
+        Whether to use raw data
 
     Returns:
     --------
     DataFrame
-        差异分析结果
+        Differential analysis results
     """
-    LOGGER.info(f"开始差异分析，方法={method}...")
+    LOGGER.info(f"Starting differential analysis, method={method}...")
 
     # If raw data exists, use raw
     if use_raw and adata.raw is not None:
@@ -140,7 +140,7 @@ def run_diff_analysis(
     if group1 is None:
         groups = None
         reference = "rest"
-        LOGGER.info(f"对所有组进行差异分析（vs rest），groupby={groupby}")
+        LOGGER.info(f"Running differential analysis for all groups (vs rest), groupby={groupby}")
     else:
         if isinstance(group1, str):
             group1 = [group1]
@@ -148,7 +148,7 @@ def run_diff_analysis(
         if group2 is None:
             groups = group1
             reference = "rest"
-            LOGGER.info(f"比较 {group1} vs rest，groupby={groupby}")
+            LOGGER.info(f"Comparing {group1} vs rest, groupby={groupby}")
         else:
             if isinstance(group2, str):
                 group2 = [group2]
@@ -170,7 +170,7 @@ def run_diff_analysis(
             reference = "_".join(group2)
             groupby = "_comparison_group"
 
-            LOGGER.info(f"比较 {group1} vs {group2}，groupby={groupby}")
+            LOGGER.info(f"Comparing {group1} vs {group2}, groupby={groupby}")
 
     # Run differential analysis
     sc.tl.rank_genes_groups(
@@ -225,7 +225,7 @@ def run_diff_analysis(
     # Add id column (same as gene)
     df_all["id"] = df_all["gene"]
 
-    LOGGER.info(f"差异分析完成，共 {len(df_all)} 个基因")
+    LOGGER.info(f"Differential analysis complete, {len(df_all)} genes in total")
 
     return df_all
 
@@ -236,21 +236,21 @@ def filter_and_sort_results(
     fc_cutoff=1.5
 ):
     """
-    过滤和排序结果
+    Filter and sort the results
 
     Parameters:
     -----------
     df : DataFrame
-        差异分析结果
+        Differential analysis results
     qval_cutoff : float
-        q-value 阈值
+        q-value threshold
     fc_cutoff : float
-        FoldChange 阈值
+        FoldChange threshold
 
     Returns:
     --------
     tuple
-        (显著差异基因表, 上调 top20, 下调 top20, 统计信息)
+        (significant DEG table, top 20 up-regulated, top 20 down-regulated, statistics)
     """
     # Filter significantly differentially expressed genes (compare absolute log2FoldChange with log2(fc_cutoff))
     df_sig = df[
@@ -258,7 +258,7 @@ def filter_and_sort_results(
         (df["log2FoldChange"].abs() >= np.log2(fc_cutoff))
     ].copy()
 
-    LOGGER.info(f"显著差异基因数（q<{qval_cutoff}, FC>={fc_cutoff}）: {len(df_sig)}")
+    LOGGER.info(f"Number of significant DEGs (q<{qval_cutoff}, FC>={fc_cutoff}): {len(df_sig)}")
 
     # Add a Regulation column for significant DEGs
     df_sig["Regulation"] = np.where(
@@ -283,8 +283,8 @@ def filter_and_sort_results(
     df_down = df_sig[df_sig["Regulation"] == "Down"].copy()
     df_down = df_down.sort_values("log2FoldChange", ascending=True).head(20)
 
-    LOGGER.info(f"上调基因 top 20: {len(df_up)}")
-    LOGGER.info(f"下调基因 top 20: {len(df_down)}")
+    LOGGER.info(f"Top 20 up-regulated genes: {len(df_up)}")
+    LOGGER.info(f"Top 20 down-regulated genes: {len(df_down)}")
 
     # Return statistics
     stats = {
@@ -298,30 +298,30 @@ def filter_and_sort_results(
 
 def save_results(df_all, df_sig, df_up, df_down, stats, outdir, group1, group2, qval_cutoff, fc_cutoff):
     """
-    保存结果
+    Save the results
 
     Parameters:
     -----------
     df_all : DataFrame
-        所有差异基因
+        All differentially expressed genes
     df_sig : DataFrame
-        显著差异基因
+        Significant differentially expressed genes
     df_up : DataFrame
-        上调基因 top 20
+        Top 20 up-regulated genes
     df_down : DataFrame
-        下调基因 top 20
+        Top 20 down-regulated genes
     stats : dict
-        统计信息
+        Statistics
     outdir : str
-        输出目录
+        Output directory
     group1 : list
-        第一组
+        First group
     group2 : list
-        第二组
+        Second group
     qval_cutoff : float
-        q-value 阈值
+        q-value threshold
     fc_cutoff : float
-        FoldChange 阈值
+        FoldChange threshold
     """
     os.makedirs(outdir, exist_ok=True)
 
@@ -332,7 +332,7 @@ def save_results(df_all, df_sig, df_up, df_down, stats, outdir, group1, group2, 
 
     # Reorder columns
     def reorder_columns(df, include_regulation=False):
-        """重新排列列顺序"""
+        """Reorder the columns"""
         # Columns to drop
         drop_cols = ["cluster", "scores"]
 
@@ -360,7 +360,7 @@ def save_results(df_all, df_sig, df_up, df_down, stats, outdir, group1, group2, 
         sep="\t",
         index=False
     )
-    LOGGER.info(f"已保存所有差异基因: {suffix}-all_diffexp_genes_anno.xls")
+    LOGGER.info(f"Saved all differentially expressed genes: {suffix}-all_diffexp_genes_anno.xls")
 
     # Save significant DEGs
     df_sig_ordered = reorder_columns(df_sig, include_regulation=True)
@@ -369,7 +369,7 @@ def save_results(df_all, df_sig, df_up, df_down, stats, outdir, group1, group2, 
         sep="\t",
         index=False
     )
-    LOGGER.info(f"已保存显著差异基因: {suffix}-diff-qval-{qval_cutoff}-FC-{fc_cutoff}_anno.xls")
+    LOGGER.info(f"Saved significant differentially expressed genes: {suffix}-diff-qval-{qval_cutoff}-FC-{fc_cutoff}_anno.xls")
 
     # Save top 20 up-regulated genes
     df_up_ordered = reorder_columns(df_up, include_regulation=True)
@@ -378,7 +378,7 @@ def save_results(df_all, df_sig, df_up, df_down, stats, outdir, group1, group2, 
         sep="\t",
         index=False
     )
-    LOGGER.info(f"已保存上调基因 top 20: {suffix}-up_top20_anno.xls")
+    LOGGER.info(f"Saved top 20 up-regulated genes: {suffix}-up_top20_anno.xls")
 
     # Save top 20 down-regulated genes
     df_down_ordered = reorder_columns(df_down, include_regulation=True)
@@ -387,7 +387,7 @@ def save_results(df_all, df_sig, df_up, df_down, stats, outdir, group1, group2, 
         sep="\t",
         index=False
     )
-    LOGGER.info(f"已保存下调基因 top 20: {suffix}-down_top20_anno.xls")
+    LOGGER.info(f"Saved top 20 down-regulated genes: {suffix}-down_top20_anno.xls")
 
     # Save statistics
     stats_df = pd.DataFrame([{
@@ -402,27 +402,27 @@ def save_results(df_all, df_sig, df_up, df_down, stats, outdir, group1, group2, 
         sep="\t",
         index=False
     )
-    LOGGER.info(f"已保存统计信息: diffexp_results_stat.xls")
+    LOGGER.info(f"Saved statistics: diffexp_results_stat.xls")
 
 
 def main():
     """
-    主函数
+    Main function
     """
     parser = argparse.ArgumentParser(
-        description="第三步：差异分析（指定分组，输出所有差异基因 + 上下调各 top 20）"
+        description="Step 3: Differential analysis (specify groups, output all DEGs + top 20 up- and down-regulated each)"
     )
 
     # Input/Output
-    parser.add_argument("-i", "--input", required=True, help="输入文件路径 (聚类后的 .h5ad)")
-    parser.add_argument("-o", "--outdir", required=True, help="输出目录")
+    parser.add_argument("-i", "--input", required=True, help="Input file path (clustered .h5ad)")
+    parser.add_argument("-o", "--outdir", required=True, help="Output directory")
 
     # Gene annotation
     parser.add_argument(
         "--annotation",
         type=str,
         default="/hwstorage/oe-scrna/jhyu/Git_lab/sh/yujunhao/refdata-gex-GRCm39-2024-A/gene_annotation.xls",
-        help="基因注释文件路径"
+        help="Path to the gene annotation file"
     )
 
     # Grouping parameters
@@ -430,21 +430,21 @@ def main():
         "--groupby",
         type=str,
         default="clusters",
-        help="分组依据 (default: clusters)"
+        help="Grouping key (default: clusters)"
     )
     parser.add_argument(
         "--group1",
         type=str,
         nargs="+",
         default=None,
-        help="第一组（可以是多个 cluster，如 0 1 2）"
+        help="First group (may be multiple clusters, e.g. 0 1 2)"
     )
     parser.add_argument(
         "--group2",
         type=str,
         nargs="+",
         default=None,
-        help="第二组（可以是多个 cluster，如果为 None 则与 rest 比较）"
+        help="Second group (may be multiple clusters; if None, compare against rest)"
     )
 
     # Differential analysis parameters
@@ -453,31 +453,31 @@ def main():
         type=str,
         default="wilcoxon",
         choices=["wilcoxon", "t-test", "logreg"],
-        help="差异分析方法 (default: wilcoxon)"
+        help="Differential analysis method (default: wilcoxon)"
     )
     parser.add_argument(
         "--n_genes",
         type=int,
         default=None,
-        help="返回的基因数（None 表示所有基因）"
+        help="Number of genes to return (None means all genes)"
     )
     parser.add_argument(
         "--qval_cutoff",
         type=float,
         default=0.05,
-        help="q-value 阈值 (default: 0.05)"
+        help="q-value threshold (default: 0.05)"
     )
     parser.add_argument(
         "--fc_cutoff",
         type=float,
         default=1.5,
-        help="FoldChange 阈值 (default: 1.5)"
+        help="FoldChange threshold (default: 1.5)"
     )
 
     args = parser.parse_args()
 
     # Read data
-    LOGGER.info(f"读取数据：{args.input}")
+    LOGGER.info(f"Reading data: {args.input}")
     adata = sc.read_h5ad(args.input)
 
     # Load gene annotation
@@ -523,7 +523,7 @@ def main():
         args.fc_cutoff
     )
 
-    LOGGER.info("差异分析完成！")
+    LOGGER.info("Differential analysis complete!")
 
 
 if __name__ == "__main__":
